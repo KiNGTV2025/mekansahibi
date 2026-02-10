@@ -13,19 +13,20 @@ class ExtractorError(Exception):
     pass
 
 class VavooExtractor:
-    """Vavoo URL extractor per risolvere link vavoo.to"""
+    """Vavoo URL extractor with LOKKE Browser bypass"""
     
     def __init__(self, request_headers: dict, proxies: list = None):
         self.request_headers = request_headers
+        # Updated user-agent to match LOKKE Browser
         self.base_headers = {
-            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+            "user-agent": "LOKKE/1.0 (Android; Mobile) AppleWebKit/537.36"
         }
         self.session = None
         self.mediaflow_endpoint = "proxy_stream_endpoint"
         self.proxies = proxies or []
 
     def _get_random_proxy(self):
-        """Restituisce un proxy casuale dalla lista."""
+        """Returns random proxy from list"""
         return random.choice(self.proxies) if self.proxies else None
         
     async def _get_session(self):
@@ -53,15 +54,19 @@ class VavooExtractor:
         return self.session
 
     async def get_auth_signature(self, retries=3, delay=2) -> Optional[str]:
-        """Ottiene la signature di autenticazione per l'API Vavoo con retry logic"""
+        """Get Vavoo authentication signature with LOKKE Browser emulation"""
+        # Updated headers to match LOKKE Browser
         headers = {
-            "user-agent": "okhttp/4.11.0",
+            "user-agent": "LOKKE/1.0 (Android; Mobile)",
             "accept": "application/json", 
             "content-type": "application/json; charset=utf-8",
-            "accept-encoding": "gzip"
+            "accept-encoding": "gzip",
+            "x-lokke-browser": "true",  # LOKKE identifier
+            "x-lokke-version": "1.0"
         }
         current_time = int(time.time() * 1000)
         
+        # Updated device info to match LOKKE Browser
         data = {
             "token": "",
             "reason": "app-blur",
@@ -70,10 +75,10 @@ class VavooExtractor:
             "metadata": {
                 "device": {
                     "type": "Handset",
-                    "brand": "google",
-                    "model": "Pixel",
-                    "name": "sdk_gphone64_arm64",
-                    "uniqueId": "d10e5d99ab665233"
+                    "brand": "LOKKE",
+                    "model": "Browser",
+                    "name": "LOKKE_Browser",
+                    "uniqueId": self._generate_device_id()
                 },
                 "os": {
                     "name": "android",
@@ -85,9 +90,9 @@ class VavooExtractor:
                     "platform": "android",
                     "version": "3.1.21",
                     "buildId": "289515000",
-                    "engine": "hbc85",
+                    "engine": "lokke-browser",  # Updated
                     "signatures": ["6e8a975e3cbf07d5de823a760d4c2547f86c1403105020adee5de67ac510999e"],
-                    "installer": "app.revanced.manager.flutter"
+                    "installer": "tv.vavoo.lokke"  # Updated
                 },
                 "version": {
                     "package": "tv.vavoo.app",
@@ -118,7 +123,10 @@ class VavooExtractor:
             },
             "iap": {
                 "supported": False
-            }
+            },
+            # LOKKE Browser specific fields
+            "lokkeBrowser": True,
+            "lokkeVersion": "1.0"
         }
         
         for attempt in range(retries):
@@ -135,41 +143,53 @@ class VavooExtractor:
                     addon_sig = result.get("addonSig")
                     
                     if addon_sig:
-                        logger.info(f"Vavoo signature obtained successfully (attempt {attempt + 1})")
+                        logger.info(f"Vavoo signature obtained with LOKKE (attempt {attempt + 1})")
                         return addon_sig
                     else:
-                        logger.warning(f"No addonSig in Vavoo API response (attempt {attempt + 1})")
+                        logger.warning(f"No addonSig in response (attempt {attempt + 1})")
                         
             except Exception as e:
-                logger.warning(f"Attempt {attempt + 1} failed for Vavoo signature: {str(e)}")
+                logger.warning(f"Attempt {attempt + 1} failed: {str(e)}")
                 if attempt < retries - 1:
                     await asyncio.sleep(delay * (attempt + 1))
                     if self.session and not self.session.closed:
                         await self.session.close()
                     self.session = None
                 else:
-                    logger.error(f"All attempts failed for Vavoo signature: {str(e)}")
+                    logger.error(f"All attempts failed: {str(e)}")
                     return None
         
         return None
 
+    def _generate_device_id(self) -> str:
+        """Generate unique device ID for LOKKE Browser"""
+        import hashlib
+        timestamp = str(int(time.time()))
+        random_str = str(random.randint(100000, 999999))
+        raw = f"lokke-{timestamp}-{random_str}"
+        return hashlib.md5(raw.encode()).hexdigest()[:16]
+
     async def _resolve_vavoo_link(self, link: str, signature: str) -> Optional[str]:
+        """Resolve Vavoo link with LOKKE Browser headers"""
         headers = {
-            "user-agent": "MediaHubMX/2",
+            "user-agent": "LOKKE/1.0 (Android; Mobile)",
             "accept": "application/json",
             "content-type": "application/json; charset=utf-8", 
             "accept-encoding": "gzip",
-            "mediahubmx-signature": signature
+            "mediahubmx-signature": signature,
+            "x-lokke-browser": "true",  # LOKKE identifier
+            "referer": "https://www.lokke.app/"  # LOKKE referer
         }
         data = {
             "language": "de",
             "region": "AT", 
             "url": link,
-            "clientVersion": "3.1.21"
+            "clientVersion": "3.1.21",
+            "lokkeBrowser": True  # LOKKE flag
         }
         
         try:
-            logger.info(f"Attempting to resolve Vavoo URL: {link}")
+            logger.info(f"Resolving Vavoo URL with LOKKE: {link}")
             session = await self._get_session()
             
             async with session.post(
@@ -182,17 +202,17 @@ class VavooExtractor:
                 
                 if isinstance(result, list) and result and result[0].get("url"):
                     resolved_url = result[0]["url"]
-                    logger.info(f"Vavoo URL resolved successfully: {resolved_url}")
+                    logger.info(f"Vavoo URL resolved with LOKKE: {resolved_url}")
                     return resolved_url
                 elif isinstance(result, dict) and result.get("url"):
                     resolved_url = result["url"]
-                    logger.info(f"Vavoo URL resolved successfully: {resolved_url}")
+                    logger.info(f"Vavoo URL resolved with LOKKE: {resolved_url}")
                     return resolved_url
                 else:
-                    logger.warning(f"No URL found in Vavoo API response: {result}")
+                    logger.warning(f"No URL in response: {result}")
                     return None
         except Exception as e:
-            logger.exception(f"Vavoo resolution failed for URL {link}: {str(e)}")
+            logger.exception(f"Vavoo resolution failed: {str(e)}")
             return None
 
     async def extract(self, url: str, **kwargs) -> Dict[str, Any]:
@@ -201,15 +221,15 @@ class VavooExtractor:
 
         signature = await self.get_auth_signature()
         if not signature:
-            raise ExtractorError("Failed to obtain Vavoo authentication signature")
+            raise ExtractorError("Failed to obtain Vavoo auth signature (LOKKE Browser required)")
 
         resolved_url = await self._resolve_vavoo_link(url, signature)
         if not resolved_url:
             raise ExtractorError("Failed to resolve Vavoo URL")
 
         stream_headers = {
-            "user-agent": self.base_headers["user-agent"],
-            "referer": "https://vavoo.to/",
+            "user-agent": "LOKKE/1.0 (Android; Mobile)",
+            "referer": "https://www.lokke.app/",
         }
 
         return {
