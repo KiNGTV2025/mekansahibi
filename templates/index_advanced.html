@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🛡️ Advanced HLS Proxy - Anti-Block Edition</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 800px;
+            width: 100%;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .header .badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: 600;
+            margin-top: 10px;
+        }
+        
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .feature {
+            background: linear-gradient(135deg, #f6f8fb, #e9ecef);
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            transition: transform 0.3s;
+        }
+        
+        .feature:hover {
+            transform: translateY(-5px);
+        }
+        
+        .feature .icon {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+        
+        .feature h3 {
+            color: #555;
+            font-size: 1.1em;
+            margin-bottom: 5px;
+        }
+        
+        .feature p {
+            color: #777;
+            font-size: 0.9em;
+        }
+        
+        .quick-access {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 30px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+        }
+        
+        .quick-access h2 {
+            margin-bottom: 20px;
+            font-size: 1.8em;
+        }
+        
+        .buttons {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        
+        .btn {
+            background: white;
+            color: #667eea;
+            padding: 15px 25px;
+            border-radius: 10px;
+            text-decoration: none;
+            font-weight: 600;
+            text-align: center;
+            transition: all 0.3s;
+            display: block;
+        }
+        
+        .btn:hover {
+            background: #f0f0f0;
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        .btn.primary {
+            background: linear-gradient(135deg, #ff6b6b, #ee5a6f);
+            color: white;
+        }
+        
+        .btn.primary:hover {
+            background: linear-gradient(135deg, #ee5a6f, #ff6b6b);
+        }
+        
+        .usage-section {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+        
+        .usage-section h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+        
+        .code-block {
+            background: #2d3748;
+            color: #68d391;
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            margin: 10px 0;
+        }
+        
+        .info-box {
+            background: #e7f3ff;
+            border-left: 4px solid #2196F3;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+        }
+        
+        .info-box.warning {
+            background: #fff3cd;
+            border-left-color: #ffc107;
+        }
+        
+        .info-box.success {
+            background: #d4edda;
+            border-left-color: #28a745;
+        }
+        
+        .lokke-instructions {
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            color: white;
+            padding: 25px;
+            border-radius: 12px;
+            margin-top: 20px;
+        }
+        
+        .lokke-instructions h3 {
+            margin-bottom: 15px;
+            font-size: 1.5em;
+        }
+        
+        .lokke-instructions ol {
+            margin-left: 20px;
+            line-height: 1.8;
+        }
+        
+        .lokke-instructions code {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+        }
+        
+        @media (max-width: 600px) {
+            .container {
+                padding: 20px;
+            }
+            
+            .header h1 {
+                font-size: 1.8em;
+            }
+            
+            .features {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🛡️ Advanced HLS Proxy</h1>
+            <div class="badge">Anti-Block Edition v2.0</div>
+            <p style="margin-top: 15px; color: #666;">Gelişmiş streaming proxy sistemi - Bypass & Stealth</p>
+        </div>
+        
+        <div class="features">
+            <div class="feature">
+                <div class="icon">🔄</div>
+                <h3>User-Agent Rotation</h3>
+                <p>Otomatik browser rotasyonu</p>
+            </div>
+            <div class="feature">
+                <div class="icon">🌐</div>
+                <h3>Domain Rotation</h3>
+                <p>Çoklu domain desteği</p>
+            </div>
+            <div class="feature">
+                <div class="icon">🔐</div>
+                <h3>SSL Bypass</h3>
+                <p>Gelişmiş şifreleme</p>
+            </div>
+            <div class="feature">
+                <div class="icon">⚡</div>
+                <h3>Fast Streaming</h3>
+                <p>Optimize edilmiş hız</p>
+            </div>
+        </div>
+        
+        <div class="quick-access">
+            <h2>🚀 Hızlı Erişim</h2>
+            <div class="buttons">
+                <a href="/vavoo" class="btn primary">📺 Vavoo Bypass</a>
+                <a href="/builder" class="btn">🔧 Playlist Builder</a>
+                <a href="/info" class="btn">ℹ️ Server Info</a>
+                <a href="/recordings" class="btn">📹 Recordings</a>
+            </div>
+        </div>
+        
+        <div class="lokke-instructions">
+            <h3>📱 LOKKE Browser Kullanımı</h3>
+            <ol>
+                <li>LOKKE Browser'ı açın (<code>www.lokke.app</code>)</li>
+                <li>URL alanına bu adresi girin:</li>
+                <div class="code-block" style="margin: 10px 0;">
+                    <span id="vavooUrl">http://YOUR_IP:PORT/vavoo</span>
+                    <button onclick="copyUrl()" style="margin-left: 10px; padding: 5px 10px; border-radius: 5px; border: none; background: #68d391; cursor: pointer;">📋 Kopyala</button>
+                </div>
+                <li>Enter tuşuna basın - Vavoo otomatik açılacak</li>
+                <li>Artık Vavoo içeriğini sorunsuz izleyebilirsiniz! 🎉</li>
+            </ol>
+            
+            <div class="info-box success" style="margin-top: 15px;">
+                <strong>✅ Avantajlar:</strong>
+                <ul style="margin-left: 20px; margin-top: 10px;">
+                    <li>Yasaklama koruması</li>
+                    <li>Otomatik domain değişimi</li>
+                    <li>Gelişmiş güvenlik</li>
+                    <li>Hızlı ve stabil bağlantı</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="usage-section">
+            <h3>🔗 API Kullanımı</h3>
+            
+            <div class="info-box">
+                <strong>Vavoo Bypass:</strong>
+                <div class="code-block">GET /vavoo</div>
+                <div class="code-block">GET /vavoo/bypass?url=https://vavoo.to</div>
+            </div>
+            
+            <div class="info-box">
+                <strong>HLS Proxy:</strong>
+                <div class="code-block">GET /proxy/hls/manifest.m3u8?url=STREAM_URL</div>
+            </div>
+            
+            <div class="info-box">
+                <strong>Stream Extractor:</strong>
+                <div class="code-block">GET /extractor?url=VIDEO_PAGE_URL</div>
+            </div>
+        </div>
+        
+        <div class="usage-section">
+            <h3>⚙️ Teknik Özellikler</h3>
+            <ul style="margin-left: 20px; line-height: 1.8; color: #555;">
+                <li><strong>Anti-Fingerprinting:</strong> Browser parmak izi koruması</li>
+                <li><strong>Smart Retry:</strong> Otomatik yeniden deneme mekanizması</li>
+                <li><strong>Domain Pool:</strong> vavoo.to, vavoo.tv, vavootv.to, vavoo.cc</li>
+                <li><strong>SSL Bypass:</strong> Güvenli bağlantı optimizasyonu</li>
+                <li><strong>Session Management:</strong> Akıllı oturum yönetimi</li>
+                <li><strong>Random Delays:</strong> İnsan benzeri davranış simülasyonu</li>
+            </ul>
+        </div>
+        
+        <div class="info-box warning">
+            <strong>⚠️ Önemli Notlar:</strong>
+            <ul style="margin-left: 20px; margin-top: 10px;">
+                <li>Bu proxy sistemi sadece kişisel kullanım içindir</li>
+                <li>Telif haklarına saygı gösterin</li>
+                <li>Yasal olmayan içerikler için kullanmayın</li>
+            </ul>
+        </div>
+        
+        <div style="text-align: center; margin-top: 30px; color: #999; font-size: 0.9em;">
+            <p>Advanced HLS Proxy v2.0 - Made with ❤️</p>
+            <p style="margin-top: 5px;">Powered by Python & aiohttp</p>
+        </div>
+    </div>
+    
+    <script>
+        // IP adresini otomatik tespit et ve göster
+        function updateVavooUrl() {
+            const hostname = window.location.hostname;
+            const port = window.location.port || '80';
+            const vavooUrl = `http://${hostname}:${port}/vavoo`;
+            document.getElementById('vavooUrl').textContent = vavooUrl;
+        }
+        
+        function copyUrl() {
+            const url = document.getElementById('vavooUrl').textContent;
+            navigator.clipboard.writeText(url).then(() => {
+                alert('URL kopyalandı: ' + url);
+            });
+        }
+        
+        updateVavooUrl();
+    </script>
+</body>
+</html>
