@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: streamflow-proxy-fast
+    name: preproxy-vavoo
     runtime: docker
     region: frankfurt  # oregon, frankfurt, singapore
     plan: free
@@ -8,9 +8,18 @@ services:
     envVars:
       - key: PORT
         value: 10000
+      - key: LOG_LEVEL
+        value: WARNING
+      - key: WORKERS
+        value: 2
+      - key: DVR_ENABLED
+        value: false
+      - key: MPD_MODE
+        value: legacy
       - key: PYTHONUNBUFFERED
         value: 1
-      - key: GEVENT_RESOLVER
-        value: ares
-    healthCheckPath: /health
+      # Uncomment for API protection
+      # - key: API_PASSWORD
+      #   generateValue: true
+    healthCheckPath: /info
     autoDeploy: true

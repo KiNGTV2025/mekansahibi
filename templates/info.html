@@ -1,0 +1,1820 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bilgi - HLS Proxy Sunucusu</title>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+        :root {
+            /* Türkiye Temalı Renkler - Sarı & Kırmızı */
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #151521;
+            --bg-tertiary: #1e1e2e;
+            --bg-card: rgba(30, 30, 46, 0.9);
+            --surface: rgba(255, 255, 255, 0.04);
+            --surface-glass: rgba(255, 255, 255, 0.06);
+            --surface-elevated: rgba(255, 255, 255, 0.08);
+            --surface-code: rgba(40, 40, 70, 0.6);
+
+            /* Türk Bayrağı Temalı Gradyanlar */
+            --primary-gradient: linear-gradient(135deg, #E30A17 0%, #E30A17 50%, #FFFFFF 50%, #FFFFFF 100%);
+            --secondary-gradient: linear-gradient(135deg, #FDCB0B 0%, #FFD700 100%);
+            --accent-gradient: linear-gradient(135deg, #E30A17 0%, #C40000 100%);
+            --warning-gradient: linear-gradient(135deg, #FDCB0B 0%, #FFA500 100%);
+            --danger-gradient: linear-gradient(135deg, #E30A17 0%, #B22222 100%);
+            --info-gradient: linear-gradient(135deg, #FDCB0B 0%, #E30A17 100%);
+            --neon-gradient: linear-gradient(45deg, #FDCB0B, #E30A17, #FFFFFF, #E30A17, #FDCB0B);
+
+            /* Durum Renkleri */
+            --status-online: #FDCB0B;
+            --status-warning: #FFA500;
+            --status-error: #E30A17;
+            --status-info: #4169E1;
+            --neon-yellow: #FDCB0B;
+            --neon-red: #E30A17;
+            --neon-white: #FFFFFF;
+
+            /* Metin Renkleri */
+            --text-primary: #ffffff;
+            --text-secondary: #e0e0e0;
+            --text-muted: #a0a0a0;
+            --text-accent: #FDCB0B;
+            --text-inverse: #0a0a0f;
+            --text-code: #FFD700;
+            --text-link: #FDCB0B;
+
+            /* Kenarlık & Efektler */
+            --border-primary: rgba(255, 255, 255, 0.1);
+            --border-accent: rgba(253, 203, 11, 0.4);
+            --border-success: rgba(253, 203, 11, 0.4);
+            --glow-primary: 0 0 25px rgba(227, 10, 23, 0.3);
+            --glow-secondary: 0 0 35px rgba(253, 203, 11, 0.4);
+            --glow-success: 0 0 25px rgba(253, 203, 11, 0.3);
+            --glow-neon: 0 0 50px rgba(253, 203, 11, 0.5);
+            --shadow-dark: 0 20px 40px rgba(0, 0, 0, 0.5);
+            --shadow-card: 0 8px 32px rgba(0, 0, 0, 0.3);
+
+            /* Animasyon */
+            --transition-fast: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+            --transition-normal: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            --transition-slow: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+
+            /* Ölçüler */
+            --border-radius: 14px;
+            --border-radius-large: 20px;
+            --spacing-xs: 0.25rem;
+            --spacing-sm: 0.5rem;
+            --spacing-md: 1rem;
+            --spacing-lg: 1.5rem;
+            --spacing-xl: 2rem;
+            --spacing-2xl: 3rem;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* Animasyonlu Arka Plan */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background:
+                radial-gradient(circle at 15% 30%, rgba(227, 10, 23, 0.15) 0%, transparent 50%),
+                radial-gradient(circle at 85% 60%, rgba(253, 203, 11, 0.12) 0%, transparent 50%),
+                radial-gradient(circle at 50% 90%, rgba(255, 255, 255, 0.08) 0%, transparent 50%);
+            animation: particleFloat 30s ease-in-out infinite;
+            z-index: -1;
+        }
+
+        @keyframes particleFloat {
+            0%, 100% {
+                transform: translateY(0) rotate(0deg) scale(1);
+                opacity: 0.8;
+            }
+            33% {
+                transform: translateY(-15px) rotate(2deg) scale(1.02);
+                opacity: 1;
+            }
+            66% {
+                transform: translateY(15px) rotate(-2deg) scale(0.98);
+                opacity: 0.9;
+            }
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: var(--spacing-lg);
+        }
+
+        /* Başlık Stilleri */
+        .header {
+            text-align: center;
+            margin-bottom: var(--spacing-2xl);
+            padding: var(--spacing-2xl) 0;
+        }
+
+        .main-title {
+            font-size: clamp(2.5rem, 5vw, 4rem);
+            font-weight: 700;
+            background: var(--neon-gradient);
+            background-size: 400% 400%;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: var(--spacing-md);
+            animation: neonPulse 4s ease-in-out infinite;
+        }
+
+        @keyframes neonPulse {
+            0%, 100% {
+                background-position: 0% 50%;
+            }
+            50% {
+                background-position: 100% 50%;
+            }
+        }
+
+        .developer-badge {
+            display: inline-block;
+            background: var(--primary-gradient);
+            color: white;
+            padding: var(--spacing-xs) var(--spacing-md);
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-top: var(--spacing-sm);
+            box-shadow: var(--glow-primary);
+            animation: badgePulse 2s ease-in-out infinite;
+        }
+
+        @keyframes badgePulse {
+            0%, 100% {
+                transform: scale(1);
+                box-shadow: var(--glow-primary);
+            }
+            50% {
+                transform: scale(1.05);
+                box-shadow: 0 0 35px rgba(227, 10, 23, 0.5);
+            }
+        }
+
+        .status-banner {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+            background: var(--surface-glass);
+            border: 1px solid var(--border-success);
+            border-radius: 50px;
+            padding: var(--spacing-sm) var(--spacing-lg);
+            backdrop-filter: blur(20px);
+            box-shadow: var(--glow-success);
+            animation: statusPulse 2s ease-in-out infinite;
+        }
+
+        @keyframes statusPulse {
+            0%, 100% {
+                transform: scale(1);
+                box-shadow: var(--glow-success);
+            }
+            50% {
+                transform: scale(1.02);
+                box-shadow: 0 0 35px rgba(253, 203, 11, 0.4);
+            }
+        }
+
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            background: var(--neon-yellow);
+            border-radius: 50%;
+            box-shadow: 0 0 15px var(--neon-yellow);
+            animation: statusGlow 1.5s ease-in-out infinite alternate;
+        }
+
+        @keyframes statusGlow {
+            from {
+                box-shadow: 0 0 10px var(--neon-yellow);
+                transform: scale(1);
+            }
+            to {
+                box-shadow: 0 0 25px var(--neon-yellow), 0 0 35px var(--neon-yellow);
+                transform: scale(1.1);
+            }
+        }
+
+        /* Navigasyon */
+        .nav-section {
+            display: flex;
+            justify-content: center;
+            gap: var(--spacing-md);
+            margin-bottom: var(--spacing-2xl);
+            flex-wrap: wrap;
+        }
+
+        .nav-button {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+            padding: var(--spacing-md) var(--spacing-lg);
+            background: var(--surface-glass);
+            border: 1px solid var(--border-primary);
+            border-radius: var(--border-radius);
+            color: var(--text-primary);
+            text-decoration: none;
+            font-weight: 500;
+            transition: var(--transition-normal);
+            backdrop-filter: blur(20px);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .nav-button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(253, 203, 11, 0.2), transparent);
+            transition: var(--transition-fast);
+        }
+
+        .nav-button:hover::before {
+            left: 100%;
+        }
+
+        .nav-button:hover {
+            background: var(--surface-elevated);
+            border-color: var(--border-accent);
+            transform: translateY(-2px);
+            box-shadow: var(--glow-primary);
+        }
+
+        /* İçerik Grid */
+        .content-grid {
+            display: grid;
+            gap: var(--spacing-xl);
+            margin-bottom: var(--spacing-2xl);
+        }
+
+        /* Bölüm Kartları */
+        .section-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-primary);
+            border-radius: var(--border-radius-large);
+            padding: var(--spacing-xl);
+            backdrop-filter: blur(25px);
+            box-shadow: var(--shadow-card);
+            transition: var(--transition-normal);
+            position: relative;
+            overflow: hidden;
+            animation: slideUp 0.6s ease-out;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .section-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: var(--primary-gradient);
+            transform: scaleX(0);
+            transition: var(--transition-normal);
+        }
+
+        .section-card:hover {
+            border-color: var(--border-accent);
+            box-shadow: var(--shadow-card), var(--glow-primary);
+            transform: translateY(-4px);
+        }
+
+        .section-card:hover::before {
+            transform: scaleX(1);
+        }
+
+        .section-title {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-md);
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: var(--spacing-lg);
+            color: var(--text-accent);
+        }
+
+        .section-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 50px;
+            height: 50px;
+            border-radius: 12px;
+            background: var(--primary-gradient);
+            font-size: 1.25rem;
+            color: white;
+            box-shadow: var(--glow-primary);
+        }
+
+        /* Endpoint Kartları */
+        .endpoint-card {
+            background: var(--surface);
+            border: 1px solid var(--border-primary);
+            border-radius: var(--border-radius);
+            padding: var(--spacing-lg);
+            margin-bottom: var(--spacing-md);
+            transition: var(--transition-normal);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .endpoint-card::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 4px;
+            height: 100%;
+            background: var(--accent-gradient);
+            transform: scaleY(0);
+            transition: var(--transition-normal);
+        }
+
+        .endpoint-card:hover {
+            background: var(--surface-elevated);
+            border-color: var(--border-accent);
+            transform: translateX(4px);
+        }
+
+        .endpoint-card:hover::before {
+            transform: scaleY(1);
+        }
+
+        .endpoint-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: var(--spacing-md);
+            flex-wrap: wrap;
+            gap: var(--spacing-sm);
+        }
+
+        .endpoint-method {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--spacing-xs);
+            padding: var(--spacing-xs) var(--spacing-sm);
+            background: var(--accent-gradient);
+            color: white;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .endpoint-path {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1rem;
+            color: var(--text-code);
+            background: var(--surface-code);
+            padding: var(--spacing-xs) var(--spacing-sm);
+            border-radius: 6px;
+            border: 1px solid var(--border-primary);
+            word-break: break-all;
+        }
+
+        .endpoint-description {
+            color: var(--text-secondary);
+            margin-bottom: var(--spacing-md);
+            line-height: 1.6;
+        }
+
+        /* Özellik Listeleri */
+        .feature-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .feature-item {
+            display: flex;
+            align-items: flex-start;
+            gap: var(--spacing-sm);
+            padding: var(--spacing-sm) 0;
+            border-bottom: 1px solid var(--border-primary);
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            transition: var(--transition-fast);
+        }
+
+        .feature-item:last-child {
+            border-bottom: none;
+        }
+
+        .feature-item:hover {
+            color: var(--text-accent);
+            padding-left: var(--spacing-sm);
+        }
+
+        .feature-bullet {
+            color: var(--status-online);
+            font-weight: bold;
+            min-width: 16px;
+        }
+
+        /* Kod Blokları */
+        .code-block {
+            background: var(--surface-code);
+            border: 1px solid var(--border-primary);
+            border-radius: var(--border-radius);
+            padding: var(--spacing-lg);
+            margin: var(--spacing-md) 0;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            color: var(--text-code);
+            overflow-x: auto;
+            position: relative;
+        }
+
+        .code-block::before {
+            content: 'KOD';
+            position: absolute;
+            top: var(--spacing-sm);
+            right: var(--spacing-sm);
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        /* Örnek Bloklar */
+        .example-block {
+            background: var(--surface);
+            border: 1px solid var(--border-primary);
+            border-left: 4px solid var(--status-info);
+            border-radius: var(--border-radius);
+            padding: var(--spacing-lg);
+            margin: var(--spacing-md) 0;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            position: relative;
+        }
+
+        .example-block::before {
+            content: 'ÖRNEK';
+            position: absolute;
+            top: var(--spacing-sm);
+            right: var(--spacing-sm);
+            font-size: 0.7rem;
+            color: var(--status-info);
+            font-weight: 600;
+        }
+
+        /* Etiketler */
+        .tag {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--spacing-xs);
+            padding: var(--spacing-xs) var(--spacing-sm);
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-right: var(--spacing-xs);
+            margin-bottom: var(--spacing-xs);
+        }
+
+        .tag-primary {
+            background: var(--primary-gradient);
+            color: white;
+            box-shadow: var(--glow-primary);
+        }
+
+        .tag-success {
+            background: var(--secondary-gradient);
+            color: var(--text-inverse);
+            box-shadow: var(--glow-secondary);
+        }
+
+        .tag-info {
+            background: var(--info-gradient);
+            color: white;
+        }
+
+        .tag-warning {
+            background: var(--warning-gradient);
+            color: var(--text-inverse);
+        }
+
+        /* Mimari Bölümü */
+        .architecture-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: var(--spacing-lg);
+            margin-top: var(--spacing-lg);
+        }
+
+        .arch-card {
+            background: var(--surface);
+            border: 1px solid var(--border-primary);
+            border-radius: var(--border-radius);
+            padding: var(--spacing-lg);
+            text-align: center;
+            transition: var(--transition-normal);
+        }
+
+        .arch-card:hover {
+            background: var(--surface-elevated);
+            border-color: var(--border-accent);
+            transform: translateY(-4px);
+        }
+
+        .arch-icon {
+            font-size: 2rem;
+            margin-bottom: var(--spacing-md);
+            color: var(--text-accent);
+        }
+
+        .arch-title {
+            font-weight: 600;
+            margin-bottom: var(--spacing-sm);
+            color: var(--text-primary);
+        }
+
+        .arch-description {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+
+        /* Performans Metrikleri */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: var(--spacing-md);
+            margin-top: var(--spacing-lg);
+        }
+
+        .metric-card {
+            background: var(--surface-glass);
+            border: 1px solid var(--border-primary);
+            border-radius: var(--border-radius);
+            padding: var(--spacing-lg);
+            text-align: center;
+            backdrop-filter: blur(20px);
+            transition: var(--transition-normal);
+        }
+
+        .metric-card:hover {
+            border-color: var(--border-accent);
+            box-shadow: var(--glow-primary);
+        }
+
+        .metric-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-accent);
+            margin-bottom: var(--spacing-xs);
+        }
+
+        .metric-label {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        /* Responsive Tasarım */
+        @media (max-width: 768px) {
+            .container {
+                padding: var(--spacing-md);
+            }
+
+            .nav-section {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .nav-button {
+                width: 100%;
+                max-width: 300px;
+                justify-content: center;
+            }
+
+            .endpoint-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
+
+        /* Scrollbar Stili */
+        ::-webkit-scrollbar {
+            width: 10px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-secondary);
+            border-radius: 5px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--surface-elevated);
+            border-radius: 5px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--border-accent);
+        }
+
+        /* Kartlar için animasyon gecikmeleri */
+        .section-card:nth-child(1) { animation-delay: 0.1s; }
+        .section-card:nth-child(2) { animation-delay: 0.2s; }
+        .section-card:nth-child(3) { animation-delay: 0.3s; }
+        .section-card:nth-child(4) { animation-delay: 0.4s; }
+
+        /* Erişilebilirlik için focus durumları */
+        .nav-button:focus,
+        .endpoint-card:focus {
+            outline: 2px solid var(--text-accent);
+            outline-offset: 2px;
+        }
+
+        /* API Referansı için Tablo Stilleri */
+        .api-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            margin: var(--spacing-md) 0 var(--spacing-xl) 0;
+            font-size: 0.9rem;
+        }
+
+        .api-table th {
+            text-align: left;
+            padding: var(--spacing-md);
+            background: var(--surface-elevated);
+            color: var(--text-primary);
+            font-weight: 600;
+            border-bottom: 2px solid var(--border-primary);
+        }
+
+        .api-table td {
+            text-align: left;
+            padding: var(--spacing-md);
+            border-bottom: 1px solid var(--border-primary);
+            color: var(--text-secondary);
+            vertical-align: top;
+        }
+
+        .api-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .api-table tr:hover td {
+            background: var(--surface-glass);
+            color: var(--text-primary);
+        }
+
+        .method-tag {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .method-get {
+            background: rgba(253, 203, 11, 0.2);
+            color: #FDCB0B;
+            border: 1px solid rgba(253, 203, 11, 0.3);
+        }
+
+        .method-post {
+            background: rgba(227, 10, 23, 0.2);
+            color: #E30A17;
+            border: 1px solid rgba(227, 10, 23, 0.3);
+        }
+
+        .method-delete {
+            background: rgba(178, 34, 34, 0.2);
+            color: #FF6B6B;
+            border: 1px solid rgba(178, 34, 34, 0.3);
+        }
+
+        /* Türkçe özel stiller */
+        .tr-flag {
+            display: inline-block;
+            width: 20px;
+            height: 14px;
+            background: linear-gradient(to right, #E30A17 33%, white 33%, white 66%, #E30A17 66%);
+            border-radius: 2px;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+
+        .developer-credit {
+            text-align: center;
+            margin-top: var(--spacing-xl);
+            padding: var(--spacing-lg);
+            background: var(--surface-glass);
+            border-radius: var(--border-radius);
+            border: 1px solid var(--border-accent);
+        }
+
+        .developer-credit h3 {
+            color: var(--text-accent);
+            margin-bottom: var(--spacing-sm);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 class="main-title">HLS Proxy Sunucusu</h1>
+            <div class="developer-badge">
+                <span class="tr-flag"></span>
+                Ümitm0d Geliştirici
+            </div>
+            <div class="status-banner">
+                <div class="status-indicator"></div>
+                <span>Sunucu Aktif</span>
+            </div>
+        </div>
+
+        <nav class="nav-section">
+            <a href="/" class="nav-button">
+                <span>🏠</span>
+                <span>Ana Sayfa</span>
+            </a>
+            <a href="builder" class="nav-button">
+                <span>🏗️</span>
+                <span>Playlist Oluşturucu</span>
+            </a>
+            <a href="#endpoints" class="nav-button">
+                <span>📡</span>
+                <span>Endpoint'ler</span>
+            </a>
+        </nav>
+
+        <div class="content-grid">
+            <!-- Gelişmiş Özellikler -->
+            <section id="features" class="section-card">
+                <h2 class="section-title">
+                    <div class="section-icon">🛠️</div>
+                    Gelişmiş Özellikler
+                </h2>
+
+                <div class="endpoint-card">
+                    <div class="endpoint-header">
+                        <span class="endpoint-method">QUERY</span>
+                        <code class="endpoint-path">&ck1=...&ck2=...</code>
+                    </div>
+                    <p class="endpoint-description">
+                        DASH (MPD) akışları için entegre ClearKey desteği.
+                    </p>
+                    <ul class="feature-list">
+                        <li class="feature-item">
+                            <span class="feature-bullet">•</span>
+                            <span>PSSH ve ContentProtection dinamik enjeksiyonu</span>
+                        </li>
+                        <li class="feature-item">
+                            <span class="feature-bullet">•</span>
+                            <span>Lisans proxy'leme otomatik çözümleme</span>
+                        </li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- Ana Endpoint'ler -->
+            <section id="endpoints" class="section-card">
+                <h2 class="section-title">
+                    <div class="section-icon">🔄</div>
+                    Ana Endpoint'ler
+                </h2>
+
+                <div class="endpoint-card">
+                    <div class="endpoint-header">
+                        <span class="endpoint-method">GET</span>
+                        <code class="endpoint-path">/proxy/manifest.m3u8?url=&lt;STREAM_URL&gt;</code>
+                    </div>
+                    <p class="endpoint-description">
+                        Çeşitli formatlar ve protokoller için tam destekli evrensel multimedya proxy.
+                    </p>
+                    <ul class="feature-list">
+                        <li class="feature-item">
+                            <span class="feature-bullet">•</span>
+                            <span><strong>VixSrc:</strong> VOD Streaming</span>
+                        </li>
+                        <li class="feature-item">
+                            <span class="feature-bullet">•</span>
+                            <span><strong>Sportzonline:</strong> Spor Yayınları</span>
+                        </li>
+                        <li class="feature-item">
+                            <span class="feature-bullet">•</span>
+                            <span><strong>HLS (.m3u8):</strong> Canlı & VOD</span>
+                        </li>
+                        <li class="feature-item">
+                            <span class="feature-bullet">•</span>
+                            <span><strong>M3U Playlist:</strong> IPTV listeleri</span>
+                        </li>
+                        <li class="feature-item">
+                            <span class="feature-bullet">•</span>
+                            <span><strong>MPD (DASH):</strong> Uyarlanabilir Streaming</span>
+                        </li>
+                        <li class="feature-item">
+                            <span class="feature-bullet">•</span>
+                            <span><strong>DLHD:</strong> Dinamik Akışlar</span>
+                        </li>
+                    </ul>
+                    <div class="example-block">/proxy/manifest.m3u8?url=https://vixsrc.to/movie/...</div>
+                </div>
+
+                <div class="endpoint-card">
+                    <div class="endpoint-header">
+                        <span class="endpoint-method">GET</span>
+                        <code class="endpoint-path">/proxy/manifest.m3u8?url=&lt;URL_VAVOO&gt;</code>
+                    </div>
+                    <p class="endpoint-description">
+                        Vavoo içerik çıkarma ve direkt akış çözümleme.
+                    </p>
+                    <ul class="feature-list">
+                        <li class="feature-item">
+                            <span class="feature-bullet">•</span>
+                            <span>vavoo.to linklerini direkt akışa dönüştürme</span>
+                        </li>
+                        <li class="feature-item">
+                            <span class="feature-bullet">•</span>
+                            <span>Otomatik API kimlik doğrulama</span>
+                        </li>
+                        <li class="feature-item">
+                            <span class="feature-bullet">•</span>
+                            <span>Streaming için optimize edilmiş başlıklar</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="endpoint-card">
+                    <div class="endpoint-header">
+                        <span class="endpoint-method">GET</span>
+                        <code class="endpoint-path">/proxy/manifest.m3u8?url=&lt;URL_DADDYLIVE&gt;</code>
+                    </div>
+                    <p class="endpoint-description">
+                        DaddyLive HD içerikleri için gelişmiş çözümleme ve kısıtlama aşma.
+                    </p>
+                    <ul class="feature-list">
+                        <li class="feature-item">
+                            <span class="feature-bullet">•</span>
+                            <span>DaddyLive HD link çözümleme</span>
+                        </li>
+                        <li class="feature-item">
+                            <span class="feature-bullet">•</span>
+                            <span>Otomatik coğrafi/bot kısıtlaması aşma</span>
+                        </li>
+                        <li class="feature-item">
+                            <span class="feature-bullet">•</span>
+                            <span>Akış kalitesi optimizasyonu</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="endpoint-card">
+                    <div class="endpoint-header">
+                        <span class="endpoint-method">GET</span>
+                        <code class="endpoint-path">/proxy/manifest.m3u8?url=&lt;URL_SPORTSONLINE&gt;</code>
+                    </div>
+                    <p class="endpoint-description">
+                        Sportsonline/Sportzonline akışlarının otomatik çözümlemesi.
+                    </p>
+                    <ul class="feature-list">
+                        <li class="feature-item">
+                            <span class="feature-bullet">•</span>
+                            <span>iframe ve M3U8 URL'lerinin otomatik çıkarılması</span>
+                        </li>
+                        <li class="feature-item">
+                            <span class="feature-bullet">•</span>
+                            <span>P.A.C.K.E.R. açma desteği</span>
+                        </li>
+                        <li class="feature-item">
+                            <span class="feature-bullet">•</span>
+                            <span>Streaming için optimize edilmiş başlıklar</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- DVR Endpoint -->
+                <div class="endpoint-card">
+                    <div class="endpoint-header">
+                        <span class="endpoint-method">GET</span>
+                        <code class="endpoint-path">/record?url=&lt;STREAM_URL&gt;</code>
+                    </div>
+                    <p class="endpoint-description">
+                        Kayıt başlat ve canlı akışa yönlendir (DVR).
+                    </p>
+                    <ul class="feature-list">
+                        <li class="feature-item">
+                            <span class="feature-bullet">•</span>
+                            <span>İzlerken kaydet</span>
+                        </li>
+                        <li class="feature-item">
+                            <span class="feature-bullet">•</span>
+                            <span>Opsiyonel başlık ve süre desteği</span>
+                        </li>
+                        <li class="feature-item">
+                            <span class="feature-bullet">•</span>
+                            <span><a href="/recordings" style="color: var(--text-link);">/recordings</a> üzerinden tam yönetim</span>
+                        </li>
+                    </ul>
+                    <div class="example-block">/record?url=https://stream.m3u8&name=LiveTV&duration=3600</div>
+                </div>
+
+                <!-- HLS Proxy -->
+                <div class="endpoint-card">
+                    <div class="endpoint-header">
+                        <span class="endpoint-method">GET</span>
+                        <code class="endpoint-path">/proxy/hls/manifest.m3u8?d=&lt;URL&gt;</code>
+                    </div>
+                    <p class="endpoint-description">
+                        Genel HLS akışları için endpoint.
+                    </p>
+                    <ul class="feature-list">
+                        <li class="feature-item">
+                            <span class="feature-bullet">•</span>
+                            <span><code>d</code> parametresi hedef URL için</span>
+                        </li>
+                        <li class="feature-item">
+                            <span class="feature-bullet">•</span>
+                            <span>Harici istemciler için uyumluluk</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- DASH / MPD Proxy -->
+                <div class="endpoint-card">
+                    <div class="endpoint-header">
+                        <span class="endpoint-method">GET</span>
+                        <code class="endpoint-path">/proxy/mpd/manifest.m3u8?d=&lt;URL_MPD&gt;</code>
+                    </div>
+                    <p class="endpoint-description">
+                        DASH (.mpd) manifest'leri için proxy ve anında dönüştürme.
+                    </p>
+                    <ul class="feature-list">
+                        <li class="feature-item">
+                            <span class="feature-bullet">•</span>
+                            <span><strong>HLS Dönüşümü:</strong> MPD'yi uyumsuz oynatıcılar için M3U8'e dönüştürür</span>
+                        </li>
+                        <li class="feature-item">
+                            <span class="feature-bullet">•</span>
+                            <span><strong>Native:</strong> Orijinal format için <code>format=mpd</code> kullanın</span>
+                        </li>
+                        <li class="feature-item">
+                            <span class="feature-bullet">•</span>
+                            <span>Entegre ClearKey DRM desteği</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- Extractor API -->
+                <div class="endpoint-card">
+                    <div class="endpoint-header">
+                        <span class="endpoint-method">GET</span>
+                        <code class="endpoint-path">/extractor/video?url=&lt;URL&gt;</code>
+                    </div>
+                    <p class="endpoint-description">
+                        Gelişmiş Çıkarıcı API.
+                    </p>
+                    <ul class="feature-list">
+                        <li class="feature-item">
+                            <span class="feature-bullet">•</span>
+                            <span><strong>Parametreler:</strong> <code>url</code> (veya <code>d</code>), <code>host</code> (opsiyonel)</span>
+                        </li>
+                        <li class="feature-item">
+                            <span class="feature-bullet">•</span>
+                            <span><strong>Base64 Desteği:</strong> URL Base64 kodlanmış olabilir</span>
+                        </li>
+                        <li class="feature-item">
+                            <span class="feature-bullet">•</span>
+                            <span><code>redirect_stream=true</code> (varsayılan): Akışa anında 302 yönlendirme</span>
+                        </li>
+                        <li class="feature-item">
+                            <span class="feature-bullet">•</span>
+                            <span><code>redirect_stream=false</code>: Metadata ve başlıklarla JSON döndürür</span>
+                        </li>
+                        <li class="feature-item">
+                            <span class="feature-bullet">•</span>
+                            <span><strong>Yardım:</strong> Parametresiz açarak kullanım kılavuzu ve host listesi görüntüleyin</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- AES Key Proxy -->
+                <div class="endpoint-card">
+                    <div class="endpoint-header">
+                        <span class="endpoint-method">GET</span>
+                        <code class="endpoint-path">/key?key_url=&lt;URL&gt;</code>
+                    </div>
+                    <p class="endpoint-description">
+                        AES-128 şifre çözme anahtarları için güvenli proxy.
+                    </p>
+                    <ul class="feature-list">
+                        <li class="feature-item">
+                            <span class="feature-bullet">•</span>
+                            <span>Anahtarlar için kimlik doğrulama başlık yönetimi</span>
+                        </li>
+                        <li class="feature-item">
+                            <span class="feature-bullet">•</span>
+                            <span>Statik ve dinamik anahtar desteği</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- DRM License Proxy -->
+                <div class="endpoint-card">
+                    <div class="endpoint-header">
+                        <span class="endpoint-method">GET/POST</span>
+                        <code class="endpoint-path">/license?url=&lt;URL&gt;</code>
+                    </div>
+                    <p class="endpoint-description">
+                        DRM lisans istekleri için proxy (ClearKey, Widevine).
+                    </p>
+                    <ul class="feature-list">
+                        <li class="feature-item">
+                            <span class="feature-bullet">•</span>
+                            <span>Statik ClearKey desteği: <code>?clearkey=KID:KEY</code></span>
+                        </li>
+                        <li class="feature-item">
+                            <span class="feature-bullet">•</span>
+                            <span>Uzak lisans sunucuları için şeffaf proxy</span>
+                        </li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- Detaylı API Endpoint'leri -->
+            <section class="section-card">
+                <h2 class="section-title">
+                    <div class="section-icon">📚</div>
+                    Detaylı API Endpoint Kılavuzu
+                </h2>
+
+                <!-- Detaylı Extractor API -->
+                <div class="endpoint-card">
+                    <div class="endpoint-header">
+                        <span class="endpoint-method">GET</span>
+                        <code class="endpoint-path">/extractor/video</code>
+                    </div>
+                    <p class="endpoint-description">
+                        <strong>Gelişmiş Çıkarıcı API</strong> - Çeşitli streaming servislerinden direkt URL ve başlık çıkarır.
+                    </p>
+
+                    <h3 style="color: var(--text-primary); margin: var(--spacing-lg) 0 var(--spacing-md) 0; font-size: 1rem;">
+                        ℹ️ Bilgi ve Yardım
+                    </h3>
+                    <p class="endpoint-description">
+                        <code>/extractor</code> veya <code>/extractor/video</code> adresini parametresiz açarak kullanım talimatları ve desteklenen host listesini içeren JSON yanıtı alın.
+                    </p>
+
+                    <h3 style="color: var(--text-primary); margin: var(--spacing-lg) 0 var(--spacing-md) 0; font-size: 1rem;">
+                        📝 Parametreler
+                    </h3>
+                    <ul class="feature-list">
+                        <li class="feature-item">
+                            <span class="feature-bullet">•</span>
+                            <span><code>url</code> veya <code>d</code> <strong>(Zorunlu)</strong> - Video URL'si. Düz metin, URL kodlanmış veya Base64 destekler</span>
+                        </li>
+                        <li class="feature-item">
+                            <span class="feature-bullet">•</span>
+                            <span><code>host</code> (Opsiyonel) - Belirli bir çıkarıcı zorla: vavoo, dlhd, doodstream, f16px, fastream, filelions, filemoon, freeshot, livetv, lulustream, maxstream, mixdrop, okru, orion, sportsonline, streamtape, streamwish, supervideo, turbovidplay, uqload, vidmoly, vidoza, vixsrc, voe</span>
+                        </li>
+                        <li class="feature-item">
+                            <span class="feature-bullet">•</span>
+                            <span><code>redirect_stream</code> - true: anında 302 yönlendirme | false (varsayılan): JSON yanıtı</span>
+                        </li>
+                        <li class="feature-item">
+                            <span class="feature-bullet">•</span>
+                            <span><code>api_password</code> (Opsiyonel) - Yapılandırılmışsa API Şifresi</span>
+                        </li>
+                    </ul>
+
+                    <h3 style="color: var(--text-primary); margin: var(--spacing-lg) 0 var(--spacing-md) 0; font-size: 1rem;">
+                        💡 Pratik Örnekler
+                    </h3>
+                    <div class="example-block">
+                        1. JSON Yanıtı (varsayılan):<br>
+                        /extractor/video?url=https://vavoo.to/channel/123
+                    </div>
+                    <div class="example-block">
+                        2. Anında yönlendirme:<br>
+                        /extractor/video?url=https://daddylive.mp/stream.php&redirect_stream=true
+                    </div>
+                    <div class="example-block">
+                        3. Manuel host ile:<br>
+                        /extractor/video?host=vavoo&url=https://custom-link.com/123
+                    </div>
+                    <div class="example-block">
+                        4. URL Base64:<br>
+                        /extractor/video?url=aHR0cHM6Ly9leGFtcGxlLmNvbS92aWRlbw==
+                    </div>
+
+                    <h3 style="color: var(--text-primary); margin: var(--spacing-lg) 0 var(--spacing-md) 0; font-size: 1rem;">
+                        🎯 Desteklenen Servisler
+                    </h3>
+                    <div style="margin-top: var(--spacing-md); display: flex; flex-wrap: wrap; gap: var(--spacing-xs);">
+                        <span class="tag tag-primary">Vavoo</span>
+                        <span class="tag tag-primary">DaddyLiveHD</span>
+                        <span class="tag tag-primary">Doodstream</span>
+                        <span class="tag tag-primary">F16px</span>
+                        <span class="tag tag-success">Fastream</span>
+                        <span class="tag tag-success">Filelions</span>
+                        <span class="tag tag-success">Filemoon</span>
+                        <span class="tag tag-success">Freeshot</span>
+                        <span class="tag tag-info">LiveTV</span>
+                        <span class="tag tag-info">Lulustream</span>
+                        <span class="tag tag-info">Maxstream</span>
+                        <span class="tag tag-info">Mixdrop</span>
+                        <span class="tag tag-warning">OKru</span>
+                        <span class="tag tag-warning">Orion</span>
+                        <span class="tag tag-warning">Sportsonline</span>
+                        <span class="tag tag-warning">Streamtape</span>
+                        <span class="tag tag-primary">Streamwish</span>
+                        <span class="tag tag-primary">Supervideo</span>
+                        <span class="tag tag-success">Turbovidplay</span>
+                        <span class="tag tag-success">Uqload</span>
+                        <span class="tag tag-info">Vidmoly</span>
+                        <span class="tag tag-info">Vidoza</span>
+                        <span class="tag tag-warning">VixSrc</span>
+                        <span class="tag tag-warning">Voe</span>
+                        <span class="tag tag-success">Genel</span>
+                    </div>
+                </div>
+
+                <!-- Proxy Endpoints -->
+                <div class="endpoint-card">
+                    <div class="endpoint-header">
+                        <span class="endpoint-method">GET</span>
+                        <code class="endpoint-path">/proxy/manifest.m3u8</code>
+                    </div>
+                    <p class="endpoint-description">
+                        <strong>Evrensel HLS Proxy</strong> - Streaming için ana giriş noktası. HLS, MPD (otomatik dönüşüm) ve direkt akışları işler.
+                    </p>
+
+                    <h3 style="color: var(--text-primary); margin: var(--spacing-lg) 0 var(--spacing-md) 0; font-size: 1rem;">
+                        📝 Ortak Parametreler
+                    </h3>
+                    <ul class="feature-list">
+                        <li class="feature-item">
+                            <span class="feature-bullet">•</span>
+                            <span><code>url</code> veya <code>d</code> - Orijinal akış URL'si</span>
+                        </li>
+                        <li class="feature-item">
+                            <span class="feature-bullet">•</span>
+                            <span><code>h_&lt;header&gt;</code> - Özel başlıklar (örn: h_User-Agent=VLC)</span>
+                        </li>
+                        <li class="feature-item">
+                            <span class="feature-bullet">•</span>
+                            <span><code>clearkey</code> - KID:KEY formatında DRM anahtarları (korunmuş MPD'ler için)</span>
+                        </li>
+                    </ul>
+
+                    <h3 style="color: var(--text-primary); margin: var(--spacing-lg) 0 var(--spacing-md) 0; font-size: 1rem;">
+                        🔄 Endpoint Varyantları
+                    </h3>
+                    <ul class="feature-list">
+                        <li class="feature-item">
+                            <span class="feature-bullet">•</span>
+                            <span><code>/proxy/hls/manifest.m3u8</code> - HLS için özel takma ad</span>
+                        </li>
+                        <li class="feature-item">
+                            <span class="feature-bullet">•</span>
+                            <span><code>/proxy/mpd/manifest.m3u8</code> - DASH (MPD) işleme zorla</span>
+                        </li>
+                        <li class="feature-item">
+                            <span class="feature-bullet">•</span>
+                            <span><code>/proxy/stream</code> - Statik dosyalar için proxy (MP4, MKV, AVI)</span>
+                        </li>
+                    </ul>
+
+                    <div class="example-block">
+                        HLS Örneği:<br>
+                        /proxy/manifest.m3u8?url=https://example.com/stream.m3u8
+                    </div>
+                    <div class="example-block">
+                        ClearKey ile MPD Örneği:<br>
+                        /proxy/manifest.m3u8?url=https://cdn.com/stream.mpd&clearkey=KID:KEY
+                    </div>
+                </div>
+
+                <!-- Yardımcılar -->
+                <div class="endpoint-card">
+                    <div class="endpoint-header">
+                        <span class="endpoint-method">GET</span>
+                        <code class="endpoint-path">Yardımcılar</code>
+                    </div>
+                    <p class="endpoint-description">
+                        <strong>Yardımcı Endpoint'ler</strong> - Playlist yönetimi, sunucu bilgisi ve hata ayıklama için ek servisler.
+                    </p>
+
+                    <ul class="feature-list">
+                        <li class="feature-item">
+                            <span class="feature-bullet">🏗️</span>
+                            <span><code>/builder</code> - Playlist Oluşturucu Web Arayüzü</span>
+                        </li>
+                        <li class="feature-item">
+                            <span class="feature-bullet">📋</span>
+                            <span><code>/playlist</code> - Uzak M3U playlist'lerini işler</span>
+                        </li>
+                        <li class="feature-item">
+                            <span class="feature-bullet">ℹ️</span>
+                            <span><code>/info</code> - Sunucu durum HTML sayfası (bu sayfa)</span>
+                        </li>
+                        <li class="feature-item">
+                            <span class="feature-bullet">📊</span>
+                            <span><code>/api/info</code> - Sunucu durum JSON API'si</span>
+                        </li>
+                        <li class="feature-item">
+                            <span class="feature-bullet">🌐</span>
+                            <span><code>/proxy/ip</code> - Sunucunun genel IP'si (VPN/Proxy hata ayıklama)</span>
+                        </li>
+                        <li class="feature-item">
+                            <span class="feature-bullet">🔧</span>
+                            <span><code>/generate_urls</code> (POST) - Toplu proxy URL'leri oluştur</span>
+                        </li>
+                        <li class="feature-item">
+                            <span class="feature-bullet">🔐</span>
+                            <span><code>/license</code> (GET/POST) - DRM Lisans yönetimi</span>
+                        </li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- Gelişmiş Özellikler -->
+            <section class="section-card">
+                <h2 class="section-title">
+                    <div class="section-icon">⚡</div>
+                    Gelişmiş Özellikler
+                </h2>
+
+                <div class="feature-list">
+                    <li class="feature-item">
+                        <span class="feature-bullet">🔐</span>
+                        <span>Otomatik AES-128 kriptografik anahtar yönetimi</span>
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-bullet">📋</span>
+                        <span>Tam #EXTVLCOPT ve #EXTHTTP desteği</span>
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-bullet">🔄</span>
+                        <span>Üstel geri çekilme ile otomatik yeniden deneme</span>
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-bullet">⚡</span>
+                        <span>Optimal performans için bağlantı havuzlama</span>
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-bullet">🌐</span>
+                        <span>h_ öneki ile özel başlıklar</span>
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-bullet">📺</span>
+                        <span>.ts segment'leri için şeffaf proxy</span>
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-bullet">🎯</span>
+                        <span>IPTV oynatıcılar ile evrensel uyumluluk</span>
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-bullet">🛡️</span>
+                        <span>Anti-bot kalıcı oturumlar</span>
+                    </li>
+                </div>
+
+                <div style="margin-top: var(--spacing-lg);">
+                    <span class="tag tag-primary">VixSrc</span>
+                    <span class="tag tag-primary">HLS</span>
+                    <span class="tag tag-primary">M3U8</span>
+                    <span class="tag tag-success">MPD</span>
+                    <span class="tag tag-info">Vavoo</span>
+                    <span class="tag tag-info">Sportzonline</span>
+                    <span class="tag tag-warning">AES-128</span>
+                </div>
+            </section>
+
+            <!-- Özel Başlıklar -->
+            <section class="section-card">
+                <h2 class="section-title">
+                    <div class="section-icon">🔧</div>
+                    Özel Başlıklar
+                </h2>
+
+                <p class="endpoint-description">
+                    <code style="color: var(--text-code); background: var(--surface-code); padding: 2px 6px; border-radius: 4px;">h_</code> öneki ile özel başlıklar ekleyin:
+                </p>
+
+                <div class="code-block">
+                    ?url=STREAM_URL&h_user-agent=CustomUA&h_referer=https://site.com&h_authorization=Bearer token123
+                </div>
+
+                <h3 style="color: var(--text-primary); margin: var(--spacing-lg) 0 var(--spacing-md) 0; font-size: 1.1rem;">
+                    Desteklenen Başlıklar:</h3>
+                <ul class="feature-list">
+                    <li class="feature-item">
+                        <span class="feature-bullet">•</span>
+                        <span><strong>h_user-agent</strong> - Özel User Agent</span>
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-bullet">•</span>
+                        <span><strong>h_referer</strong> - Yönlendiren site</span>
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-bullet">•</span>
+                        <span><strong>h_authorization</strong> - Yetkilendirme token'ı</span>
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-bullet">•</span>
+                        <span><strong>h_origin</strong> - Origin domain</span>
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-bullet">•</span>
+                        <span><strong>h_*</strong> - Herhangi bir özel başlık</span>
+                    </li>
+                </ul>
+            </section>
+
+            <!-- Tam API Referansı -->
+            <section class="section-card">
+                <h2 class="section-title">
+                    <div class="section-icon">📚</div>
+                    Tam API Referansı
+                </h2>
+                <p class="endpoint-description">Sunucuda bulunan tüm endpoint'lerin tam listesi.</p>
+
+                <!-- Sistem & Genel -->
+                <h3 style="color: var(--text-primary); margin: var(--spacing-lg) 0 var(--spacing-sm) 0;">🏠 Sistem & Genel</h3>
+                <table class="api-table">
+                    <thead>
+                        <tr>
+                            <th width="100">Metod</th>
+                            <th>Endpoint</th>
+                            <th>Açıklama</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><span class="method-tag method-get">GET</span></td>
+                            <td><code>/</code></td>
+                            <td>Ana sayfa ve sunucu durumu.</td>
+                        </tr>
+                        <tr>
+                            <td><span class="method-tag method-get">GET</span></td>
+                            <td><code>/info</code></td>
+                            <td>Detaylı bilgi sayfası.</td>
+                        </tr>
+                        <tr>
+                            <td><span class="method-tag method-get">GET</span></td>
+                            <td><code>/builder</code></td>
+                            <td>Playlist Oluşturucu Web Arayüzü.</td>
+                        </tr>
+                        <tr>
+                            <td><span class="method-tag method-get">GET</span></td>
+                            <td><code>/api/info</code></td>
+                            <td>Sunucu durumu JSON API'si.</td>
+                        </tr>
+                        <tr>
+                            <td><span class="method-tag method-get">GET</span></td>
+                            <td><code>/proxy/ip</code></td>
+                            <td>Sunucunun genel IP'sini döndürür.</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <!-- Proxy & Streaming -->
+                <h3 style="color: var(--text-primary); margin: var(--spacing-lg) 0 var(--spacing-sm) 0;">📺 Proxy & Streaming</h3>
+                <table class="api-table">
+                    <thead>
+                        <tr>
+                            <th width="100">Metod</th>
+                            <th>Endpoint</th>
+                            <th>Açıklama</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><span class="method-tag method-get">GET</span></td>
+                            <td><code>/proxy/manifest.m3u8</code></td>
+                            <td><strong>Ana Giriş Noktası</strong>. HLS/DASH otomatik tespit.</td>
+                        </tr>
+                        <tr>
+                            <td><span class="method-tag method-get">GET</span></td>
+                            <td><code>/proxy/hls/manifest.m3u8</code></td>
+                            <td>HLS için özel takma ad.</td>
+                        </tr>
+                        <tr>
+                            <td><span class="method-tag method-get">GET</span></td>
+                            <td><code>/proxy/mpd/manifest.m3u8</code></td>
+                            <td>DASH (MPD) girişini HLS dönüşümü ile zorla.</td>
+                        </tr>
+                        <tr>
+                            <td><span class="method-tag method-get">GET</span></td>
+                            <td><code>/proxy/stream</code></td>
+                            <td>Statik veya progresif dosyalar için genel proxy.</td>
+                        </tr>
+                        <tr>
+                            <td><span class="method-tag method-get">GET</span></td>
+                            <td><code>/playlist</code></td>
+                            <td>Dinamik M3U playlist oluşturucu.</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <!-- Çıkarıcılar -->
+                <h3 style="color: var(--text-primary); margin: var(--spacing-lg) 0 var(--spacing-sm) 0;">🔍 Çıkarıcılar</h3>
+                <table class="api-table">
+                    <thead>
+                        <tr>
+                            <th width="100">Metod</th>
+                            <th>Endpoint</th>
+                            <th>Açıklama</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><span class="method-tag method-get">GET</span></td>
+                            <td><code>/extractor/video</code></td>
+                            <td>Link ve başlık çıkarır. JSON veya Yönlendirme döndürür.</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <!-- Anahtarlar & DRM -->
+                <h3 style="color: var(--text-primary); margin: var(--spacing-lg) 0 var(--spacing-sm) 0;">🔐 Anahtarlar & DRM</h3>
+                <table class="api-table">
+                    <thead>
+                        <tr>
+                            <th width="100">Metod</th>
+                            <th>Endpoint</th>
+                            <th>Açıklama</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><span class="method-tag method-get">GET</span></td>
+                            <td><code>/license</code></td>
+                            <td>DRM lisansları için proxy (ClearKey/Widevine).</td>
+                        </tr>
+                        <tr>
+                            <td><span class="method-tag method-post">POST</span></td>
+                            <td><code>/license</code></td>
+                            <td>DRM lisansları için proxy (payload).</td>
+                        </tr>
+                        <tr>
+                            <td><span class="method-tag method-get">GET</span></td>
+                            <td><code>/key</code></td>
+                            <td>AES-128 anahtarları için proxy.</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <!-- DVR -->
+                <h3 style="color: var(--text-primary); margin: var(--spacing-lg) 0 var(--spacing-sm) 0;">📼 DVR (Kayıtlar)</h3>
+                <table class="api-table">
+                    <thead>
+                        <tr>
+                            <th width="100">Metod</th>
+                            <th>Endpoint</th>
+                            <th>Açıklama</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><span class="method-tag method-get">GET</span></td>
+                            <td><code>/recordings</code></td>
+                            <td><strong>Web Arayüzü</strong> kayıt yönetimi için.</td>
+                        </tr>
+                        <tr>
+                            <td><span class="method-tag method-get">GET</span></td>
+                            <td><code>/record</code></td>
+                            <td>Kayıt başlatır ve akışa yönlendirir (Akıllı Mod).</td>
+                        </tr>
+                        <tr>
+                            <td><span class="method-tag method-get">GET</span></td>
+                            <td><code>/api/recordings</code></td>
+                            <td>Tüm kayıtları listeler (JSON).</td>
+                        </tr>
+                        <tr>
+                            <td><span class="method-tag method-get">GET</span></td>
+                            <td><code>/api/recordings/active</code></td>
+                            <td>Aktif kayıtları listeler.</td>
+                        </tr>
+                        <tr>
+                            <td><span class="method-tag method-get">GET</span></td>
+                            <td><code>/api/recordings/{id}</code></td>
+                            <td>Kayıt detayları.</td>
+                        </tr>
+                        <tr>
+                            <td><span class="method-tag method-post">POST</span></td>
+                            <td><code>/api/recordings/start</code></td>
+                            <td>Arka plan kaydı başlat.</td>
+                        </tr>
+                        <tr>
+                            <td><span class="method-tag method-post">POST</span></td>
+                            <td><code>/api/recordings/{id}/stop</code></td>
+                            <td>Aktif kaydı durdur.</td>
+                        </tr>
+                        <tr>
+                            <td><span class="method-tag method-get">GET</span></td>
+                            <td><code>/api/recordings/{id}/stream</code></td>
+                            <td>Kaydı izle (canlı/vod).</td>
+                        </tr>
+                        <tr>
+                            <td><span class="method-tag method-get">GET</span></td>
+                            <td><code>/api/recordings/{id}/download</code></td>
+                            <td>Video dosyasını indir.</td>
+                        </tr>
+                        <tr>
+                            <td><span class="method-tag method-delete">DEL</span></td>
+                            <td><code>/api/recordings/{id}</code></td>
+                            <td>Kaydı sil.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </section>
+
+            <!-- Playlist Oluşturucu -->
+            <section class="section-card">
+                <h2 class="section-title">
+                    <div class="section-icon">🏗️</div>
+                    Playlist Oluşturucu
+                </h2>
+
+                <p class="endpoint-description">
+                    Birden fazla playlist'i tek M3U akışında birleştirin:
+                </p>
+
+                <div class="endpoint-card" style="margin: var(--spacing-lg) 0;">
+                    <div class="endpoint-header">
+                        <span class="endpoint-method">GET</span>
+                        <code class="endpoint-path">/builder</code>
+                    </div>
+                </div>
+
+                <p class="endpoint-description">
+                    Aşağıdakiler için tam arayüz:
+                </p>
+
+                <ul class="feature-list">
+                    <li class="feature-item">
+                        <span class="feature-bullet">✅</span>
+                        <span>Birden fazla playlist birleştirme</span>
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-bullet">✅</span>
+                        <span>Otomatik Vavoo ve DLHD yönetimi</span>
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-bullet">✅</span>
+                        <span>Tüm akışlar için otomatik proxy</span>
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-bullet">✅</span>
+                        <span>VLC, Kodi, IPTV oynatıcılar uyumluluğu</span>
+                    </li>
+                </ul>
+
+                <div class="example-block">Çıktı formatı: Entegre proxy ile M3U8</div>
+            </section>
+
+            <!-- Oynatıcı Uyumluluğu -->
+            <section class="section-card">
+                <h2 class="section-title">
+                    <div class="section-icon">📱</div>
+                    Oynatıcı Uyumluluğu
+                </h2>
+
+                <div class="architecture-grid">
+                    <div class="arch-card">
+                        <div class="arch-icon">🎬</div>
+                        <div class="arch-title">VLC Media Player</div>
+                        <div class="arch-description">Tüm versiyonlar desteklenir</div>
+                    </div>
+                    <div class="arch-card">
+                        <div class="arch-icon">🎯</div>
+                        <div class="arch-title">Kodi</div>
+                        <div class="arch-description">IPTV eklentisi ile</div>
+                    </div>
+                    <div class="arch-card">
+                        <div class="arch-icon">📺</div>
+                        <div class="arch-title">IPTV Smarters Pro</div>
+                        <div class="arch-description">Native destek</div>
+                    </div>
+                    <div class="arch-card">
+                        <div class="arch-icon">⚡</div>
+                        <div class="arch-title">TiviMate</div>
+                        <div class="arch-description">Gelişmiş IPTV Oynatıcı</div>
+                    </div>
+                    <div class="arch-card">
+                        <div class="arch-icon">🎮</div>
+                        <div class="arch-title">Perfect Player</div>
+                        <div class="arch-description">Tam IPTV paketi</div>
+                    </div>
+                    <div class="arch-card">
+                        <div class="arch-icon">🌐</div>
+                        <div class="arch-title">Web Tarayıcı</div>
+                        <div class="arch-description">Modern HTML5</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Sistem Mimarisi -->
+            <section id="architecture" class="section-card">
+                <h2 class="section-title">
+                    <div class="section-icon">⚙️</div>
+                    Sistem Mimarisi
+                </h2>
+
+                <h3 style="color: var(--text-primary); margin: 0 0 var(--spacing-md) 0; display: flex; align-items: center; gap: var(--spacing-sm);">
+                    <span>🏗️</span> Teknoloji Yığını:
+                </h3>
+                <ul class="feature-list" style="margin-bottom: var(--spacing-xl);">
+                    <li class="feature-item">
+                        <span class="feature-bullet">•</span>
+                        <span>Python 3.11+ (FastAPI/aiohttp)</span>
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-bullet">•</span>
+                        <span>Asenkron ASGI sunucu (Uvicorn)</span>
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-bullet">•</span>
+                        <span>Bağlantı havuzlama HTTP/2</span>
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-bullet">•</span>
+                        <span>Kalıcı oturum yönetimi</span>
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-bullet">•</span>
+                        <span>Anti-bot tespit aşma</span>
+                    </li>
+                </ul>
+
+                <h3 style="color: var(--text-primary); margin: 0 0 var(--spacing-md) 0; display: flex; align-items: center; gap: var(--spacing-sm);">
+                    <span>⚡</span> Performans:
+                </h3>
+
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="metric-value">&lt; 50ms</div>
+                        <div class="metric-label">Ek Gecikme</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">1000+</div>
+                        <div class="metric-label">Eşzamanlı Bağlantı</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">50-200MB</div>
+                        <div class="metric-label">Tipik Bellek</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">∞</div>
+                        <div class="metric-label">Verim</div>
+                    </div>
+                </div>
+
+                <ul class="feature-list" style="margin-top: var(--spacing-lg);">
+                    <li class="feature-item">
+                        <span class="feature-bullet">•</span>
+                        <span>Entegre DNS önbellekleme</span>
+                    </li>
+                </ul>
+            </section>
+
+            <!-- Geliştirici Bilgisi -->
+            <section class="developer-credit">
+                <h3>🛠️ Geliştirici Bilgisi</h3>
+                <p>Bu proje <strong>Ümitm0d</strong> tarafından geliştirilmiştir.</p>
+                <p style="margin-top: var(--spacing-sm); color: var(--text-accent);">Türk bayrağı renklerinde modern bir tasarım ile sunulmaktadır.</p>
+            </section>
+        </div>
+    </div>
+
+    <script>
+        // Dahili linkler için smooth scrolling
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+
+        // Kartlar için gelişmiş hover efektleri
+        document.addEventListener('DOMContentLoaded', function () {
+            const cards = document.querySelectorAll('.section-card, .endpoint-card, .arch-card, .metric-card');
+
+            cards.forEach(card => {
+                card.addEventListener('mouseenter', function () {
+                    this.style.transform = this.classList.contains('section-card') ? 'translateY(-6px)' : 'translateY(-4px)';
+                });
+
+                card.addEventListener('mouseleave', function () {
+                    this.style.transform = 'translateY(0)';
+                });
+            });
+
+            // Durum banner'ı tıklama animasyonu
+            const statusBanner = document.querySelector('.status-banner');
+            statusBanner.addEventListener('click', () => {
+                statusBanner.style.animation = 'none';
+                setTimeout(() => {
+                    statusBanner.style.animation = 'statusPulse 0.6s ease-in-out';
+                }, 10);
+                setTimeout(() => {
+                    statusBanner.style.animation = 'statusPulse 2s ease-in-out infinite';
+                }, 600);
+            });
+
+            // Hafif paralaks efekti
+            let ticking = false;
+
+            function updateParallax() {
+                const scrollTop = window.pageYOffset;
+                const rate = scrollTop * -0.5;
+                document.body.style.transform = `translate3d(0, ${rate}px, 0)`;
+                ticking = false;
+            }
+
+            function requestTick() {
+                if (!ticking) {
+                    requestAnimationFrame(updateParallax);
+                    ticking = true;
+                }
+            }
+
+            window.addEventListener('scroll', requestTick);
+
+            // Giriş animasyonları için Intersection Observer
+            const observerOptions = {
+                threshold: 0.1,
+                rootMargin: '0px 0px -50px 0px'
+            };
+
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.style.opacity = '1';
+                        entry.target.style.transform = 'translateY(0)';
+                    }
+                });
+            }, observerOptions);
+
+            // Tüm section-card'ları gözlemle
+            document.querySelectorAll('.section-card').forEach(card => {
+                card.style.opacity = '0';
+                card.style.transform = 'translateY(30px)';
+                card.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+                observer.observe(card);
+            });
+        });
+    </script>
+</body>
+
+</html>

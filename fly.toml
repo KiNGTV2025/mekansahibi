@@ -1,0 +1,25 @@
+# Fly.io Configuration
+app = "preproxy-vavoo"  # Değiştir: benzersiz olmalı
+primary_region = "fra"   # Frankfurt (Avrupa için en yakın)
+
+[build]
+
+[http_service]
+  internal_port = 7860
+  force_https = true
+  auto_stop_machines = false  # Sürekli çalışsın
+  auto_start_machines = true
+  min_machines_running = 1
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory_mb = 512  # Free tier: 256-512MB
+
+[env]
+  PORT = "7860"
+  LOG_LEVEL = "WARNING"
+  WORKERS = "2"
+  DVR_ENABLED = "false"
+  MPD_MODE = "legacy"
+  PYTHONUNBUFFERED = "1"

@@ -1,4 +1,5 @@
 [phases.setup]
+nixPkgs = ["ffmpeg"]
 
 [phases.install]
 cmds = ["pip install -r requirements.txt"]
@@ -6,4 +7,4 @@ cmds = ["pip install -r requirements.txt"]
 [phases.build]
 
 [start]
-cmd = "python app.py"
+cmd = "gunicorn --bind 0.0.0.0:$PORT --workers 2 --worker-class aiohttp.GunicornWebWorker --timeout 180 --keepalive 60 --graceful-timeout 90 --worker-connections 1000 --max-requests 10000 --max-requests-jitter 1000 --access-logfile - --error-logfile - --log-level warning --preload-app app:app"

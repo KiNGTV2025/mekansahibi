@@ -1,0 +1,66 @@
+version: '3.8'
+services:
+  EasyProxy:
+    build: https://github.com/nzo66/EasyProxy.git#main
+    container_name: EasyProxy
+    restart: unless-stopped
+    ports:
+      - '0.0.0.0:7860:7860'  # 🔥 SABİT 7860, 0.0.0.0 ile
+    environment:
+      - API_PASSWORD=ep
+      - PORT=7860
+      # WiFi için optimizasyon
+      - PYTHONUNBUFFERED=1
+      - UVICORN_LOG_LEVEL=warning
+      # - MPD_MODE=legacy
+      # - GLOBAL_PROXY=
+      # - TRANSPORT_ROUTES={URL=vavoo.to, PROXY=socks5://proxy1:1080, DISABLE_SSL=true}
+    networks:
+      - proxy_network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./recordings:/app/recordings
+      - ./temp_hls:/app/temp_hls
+    # 🔥 WIFI İÇİN SYSCTL AYARLARI
+    sysctls:
+      - net.core.rmem_max=4194304
+      - net.core.wmem_max=4194304
+      - net.ipv4.tcp_rmem=4096 87380 4194304
+      - net.ipv4.tcp_wmem=4096 65536 4194304
+      - net.ipv4.tcp_mtu_probing=1
+    # 🔥 WIFI İÇİN ULIMIT AYARLARI
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '2.0'
+        reservations:
+          memory: 1G
+          cpus: '1.0'
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7860"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    # 🔥 LOG ROTATION
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  proxy_network:
+    driver: bridge
+    # 🔥 WIFI PERFORMANS İÇİN
+    driver_opts:
+      com.docker.network.bridge.mtu: 1450  # WiFi MTU
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+          gateway: 172.20.0.1

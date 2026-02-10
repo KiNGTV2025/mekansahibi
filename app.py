@@ -1,581 +1,292 @@
-from gevent import monkey
-monkey.patch_all()
-
-from flask import Flask, request, Response, render_template_string, jsonify
-import requests
-from urllib.parse import urlparse, urljoin, quote, unquote
-import re
-import os
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
-import time
 import logging
+import sys
+import os
+import asyncio
+from aiohttp import web
 
-# Minimal logging
-logging.basicConfig(level=logging.WARNING)
-logger = logging.getLogger(__name__)
+# Aggiungi path corrente per import moduli
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-app = Flask(__name__)
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'streamflow-fast')
+from services.hls_proxy import HLSProxy
+from services.ffmpeg_manager import FFmpegManager
+from config import PORT, DVR_ENABLED, RECORDINGS_DIR, MAX_RECORDING_DURATION, RECORDINGS_RETENTION_DAYS
 
-# Basit metrikler
-metrics = {
-    'total_requests': 0,
-    'active_streams': 0,
-    'start_time': time.time()
-}
+# Only import DVR components if enabled
+if DVR_ENABLED:
+    from services.recording_manager import RecordingManager
+    from routes.recordings import setup_recording_routes
 
-# Minimal HTML Template
-HTML_TEMPLATE = '''
-<!DOCTYPE html>
-<html lang="tr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>StreamFlow Proxy - Fast</title>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <style>
-        :root {
-            --primary: #6366f1;
-            --bg: #0f172a;
-            --card: #1e293b;
-            --text: #f1f5f9;
-            --border: #334155;
-            --success: #22c55e;
-        }
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            background: var(--bg);
-            color: var(--text);
-            line-height: 1.6;
-        }
-        .container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
-        .header {
-            text-align: center;
-            margin-bottom: 3rem;
-            padding-top: 2rem;
-        }
-        .logo {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 1rem;
-            margin-bottom: 1rem;
-        }
-        .logo-icon {
-            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-            width: 60px;
-            height: 60px;
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.8rem;
-            color: white;
-        }
-        .logo-text {
-            font-size: 2.2rem;
-            font-weight: 800;
-            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-        .badge {
-            display: inline-block;
-            background: rgba(34, 197, 94, 0.2);
-            color: var(--success);
-            padding: 0.4rem 0.8rem;
-            border-radius: 20px;
-            font-size: 0.85rem;
-            margin-left: 0.5rem;
-        }
-        .card {
-            background: var(--card);
-            border-radius: 16px;
-            padding: 2rem;
-            margin-bottom: 2rem;
-            border: 1px solid var(--border);
-        }
-        .card-title {
-            display: flex;
-            align-items: center;
-            gap: 0.8rem;
-            margin-bottom: 1.5rem;
-            font-size: 1.3rem;
-        }
-        .input-group {
-            display: flex;
-            gap: 1rem;
-            margin-bottom: 1rem;
-        }
-        .input {
-            flex: 1;
-            background: rgba(30, 41, 59, 0.8);
-            border: 2px solid var(--border);
-            border-radius: 10px;
-            padding: 0.9rem 1.2rem;
-            color: var(--text);
-            font-size: 0.95rem;
-        }
-        .input:focus {
-            outline: none;
-            border-color: var(--primary);
-        }
-        .btn {
-            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-            color: white;
-            border: none;
-            padding: 0.9rem 1.8rem;
-            border-radius: 10px;
-            font-size: 0.95rem;
-            font-weight: 600;
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-        .btn:hover { opacity: 0.9; }
-        .endpoints {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 1rem;
-        }
-        .endpoint {
-            background: rgba(30, 41, 59, 0.5);
-            border-radius: 10px;
-            padding: 1.2rem;
-            border: 1px solid var(--border);
-        }
-        .endpoint-title {
-            display: flex;
-            align-items: center;
-            gap: 0.6rem;
-            margin-bottom: 0.6rem;
-            font-weight: 600;
-        }
-        .endpoint-url {
-            background: rgba(15, 23, 42, 0.8);
-            padding: 0.6rem;
-            border-radius: 6px;
-            font-family: monospace;
-            font-size: 0.8rem;
-            color: #cbd5e1;
-            word-break: break-all;
-            margin-top: 0.5rem;
-        }
-        .stats {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 1rem;
-            margin-top: 1.5rem;
-        }
-        .stat {
-            text-align: center;
-            padding: 1.2rem;
-            background: rgba(99, 102, 241, 0.1);
-            border-radius: 12px;
-        }
-        .stat-number {
-            font-size: 2rem;
-            font-weight: 800;
-            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-        .stat-label {
-            color: #94a3b8;
-            font-size: 0.8rem;
-            text-transform: uppercase;
-        }
-        .footer {
-            text-align: center;
-            margin-top: 3rem;
-            padding: 1.5rem;
-            border-top: 1px solid var(--border);
-            color: #64748b;
-            font-size: 0.85rem;
-        }
-        @media (max-width: 768px) {
-            .container { padding: 1rem; }
-            .input-group { flex-direction: column; }
-            .endpoints { grid-template-columns: 1fr; }
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <div class="logo">
-                <div class="logo-icon"><i class="fas fa-bolt"></i></div>
-                <h1 class="logo-text">StreamFlow Fast<span class="badge">v3.0</span></h1>
-            </div>
-            <p style="color: #94a3b8;">Ultra-fast streaming proxy</p>
-        </div>
+# Configurazione logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(name)s - %(message)s'
+)
 
-        <div class="card">
-            <h2 class="card-title">
-                <i class="fas fa-play-circle"></i>
-                Quick Proxy
-            </h2>
-            <div class="input-group">
-                <input type="text" 
-                       class="input" 
-                       id="url" 
-                       placeholder="Enter stream URL..."
-                       value="">
-                <button class="btn" onclick="go()">
-                    <i class="fas fa-rocket"></i>
-                    Proxy
-                </button>
-            </div>
-        </div>
-
-        <div class="card">
-            <h2 class="card-title">
-                <i class="fas fa-plug"></i>
-                API Endpoints
-            </h2>
-            <div class="endpoints">
-                <div class="endpoint">
-                    <div class="endpoint-title">
-                        <i class="fas fa-stream"></i>
-                        M3U8 Proxy
-                    </div>
-                    <div class="endpoint-url">/proxy/m3u?url=URL</div>
-                </div>
-                <div class="endpoint">
-                    <div class="endpoint-title">
-                        <i class="fas fa-wrench"></i>
-                        Auto Resolve
-                    </div>
-                    <div class="endpoint-url">/proxy/resolve?url=URL</div>
-                </div>
-                <div class="endpoint">
-                    <div class="endpoint-title">
-                        <i class="fas fa-file-video"></i>
-                        Segment Proxy
-                    </div>
-                    <div class="endpoint-url">/proxy/ts?url=URL</div>
-                </div>
-            </div>
-        </div>
-
-        <div class="stats">
-            <div class="stat">
-                <div class="stat-number" id="requests">0</div>
-                <div class="stat-label">Requests</div>
-            </div>
-            <div class="stat">
-                <div class="stat-number" id="streams">0</div>
-                <div class="stat-label">Active</div>
-            </div>
-            <div class="stat">
-                <div class="stat-number" id="uptime">0h</div>
-                <div class="stat-label">Uptime</div>
-            </div>
-        </div>
-
-        <div class="footer">
-            <p>StreamFlow Fast v3.0 • Ultra Performance Edition</p>
-            <p style="margin-top: 0.5rem;"><i class="fas fa-code"></i> by Ümitm0d</p>
-        </div>
-    </div>
-
-    <script>
-        function go() {
-            const url = document.getElementById('url').value.trim();
-            if (!url) { alert('Enter URL'); return; }
-            window.open(`/proxy/resolve?url=${encodeURIComponent(url)}`, '_blank');
-        }
-        document.getElementById('url').addEventListener('keypress', e => {
-            if (e.key === 'Enter') go();
-        });
-        async function update() {
-            try {
-                const r = await fetch('/api/stats');
-                const d = await r.json();
-                document.getElementById('requests').textContent = d.requests;
-                document.getElementById('streams').textContent = d.streams;
-                document.getElementById('uptime').textContent = d.uptime + 'h';
-            } catch(e) {}
-        }
-        update();
-        setInterval(update, 10000);
-    </script>
-</body>
-</html>
-'''
-
-# Session pool - bir kere oluştur, hep kullan
-SESSION_POOL = None
-
-def get_session():
-    """Global session pool"""
-    global SESSION_POOL
-    if SESSION_POOL is None:
-        SESSION_POOL = requests.Session()
-        retry = Retry(total=2, backoff_factor=0.1, status_forcelist=[500, 502, 503, 504])
-        adapter = HTTPAdapter(
-            pool_connections=100,
-            pool_maxsize=100,
-            max_retries=retry,
-            pool_block=False
-        )
-        SESSION_POOL.mount('http://', adapter)
-        SESSION_POOL.mount('https://', adapter)
-    return SESSION_POOL
-
-# Pattern'ler - compile edilmiş
-PATTERNS = {
-    'channel_key': re.compile(r'channelKey\s*=\s*"([^"]*)"'),
-    'auth_ts': re.compile(r'authTs\s*=\s*"([^"]*)"'),
-    'auth_rnd': re.compile(r'authRnd\s*=\s*"([^"]*)"'),
-    'auth_sig': re.compile(r'authSig\s*=\s*"([^"]*)"'),
-    'auth_host': re.compile(r'\}\s*fetchWithRetry\(\s*[\'"]([^\'"]*)[\'"]'),
-    'server_lookup': re.compile(r'n\s+fetchWithRetry\(\s*[\'"]([^\'"]*)[\'"]'),
-    'host': re.compile(r'm3u8\s*=.*?[\'"]([^\'"]*)[\'"]'),
-    'iframe': re.compile(r'iframe\s+src=[\'"]([^\'"]+)[\'"]')
-}
-
-def resolve_fast(url, headers=None):
-    """Hızlı URL çözümleme - cache yok, direkt işlem"""
-    if not url:
-        return {"resolved_url": None, "headers": {}}
-
-    h = headers or {'User-Agent': 'Mozilla/5.0'}
-    is_vavoo = "vavoo.to" in url
-    s = get_session()
+def create_app():
+    """Crea e configura l'applicazione aiohttp."""
+    ffmpeg_manager = FFmpegManager()
+    proxy = HLSProxy(ffmpeg_manager=ffmpeg_manager)
     
-    try:
-        resp = s.get(url, headers=h, allow_redirects=True, timeout=(2, 5))
-        content = resp.text
-        final = resp.url
+    # ✅ Increased client timeout for HF Space
+    app = web.Application(client_max_size=1024**3)  # 1GB max
+    app['ffmpeg_manager'] = ffmpeg_manager
+    app.ffmpeg_manager = ffmpeg_manager
 
-        if is_vavoo or content[:10].strip().startswith('#EXTM3U'):
-            return {"resolved_url": final, "headers": h}
+    # Initialize recording manager for DVR functionality
+    if DVR_ENABLED:
+        recording_manager = RecordingManager(
+            recordings_dir=RECORDINGS_DIR,
+            max_duration=MAX_RECORDING_DURATION,
+            retention_days=RECORDINGS_RETENTION_DAYS
+        )
+        app['recording_manager'] = recording_manager
 
-        # Iframe yakala
-        iframe = PATTERNS['iframe'].search(content)
-        if not iframe:
-            return {"resolved_url": final if content[:10].strip().startswith('#EXTM3U') else url, "headers": h}
+    # Registra le route
+    app.router.add_get('/', proxy.handle_root)
+    app.router.add_get('/favicon.ico', proxy.handle_favicon)
+    
+    static_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static')
+    if not os.path.exists(static_path):
+        os.makedirs(static_path)
+    app.router.add_static('/static', static_path)
+    
+    app.router.add_get('/builder', proxy.handle_builder)
+    app.router.add_get('/info', proxy.handle_info_page)
+    app.router.add_get('/api/info', proxy.handle_api_info)
+    app.router.add_get('/key', proxy.handle_key_request)
+    app.router.add_get('/proxy/manifest.m3u8', proxy.handle_proxy_request)
+    app.router.add_get('/proxy/hls/manifest.m3u8', proxy.handle_proxy_request)
+    app.router.add_get('/proxy/mpd/manifest.m3u8', proxy.handle_proxy_request)
+    app.router.add_get('/proxy/stream', proxy.handle_proxy_request)
+    app.router.add_get('/extractor', proxy.handle_extractor_request)
+    app.router.add_get('/extractor/video', proxy.handle_extractor_request)
+    app.router.add_get('/proxy/hls/segment.ts', proxy.handle_proxy_request)
+    app.router.add_get('/proxy/hls/segment.m4s', proxy.handle_proxy_request)
+    app.router.add_get('/proxy/hls/segment.mp4', proxy.handle_proxy_request)
+    app.router.add_get('/playlist', proxy.handle_playlist_request)
+    app.router.add_get('/segment/{segment}', proxy.handle_ts_segment)
+    app.router.add_get('/decrypt/segment.mp4', proxy.handle_decrypt_segment)
+    app.router.add_get('/decrypt/segment.ts', proxy.handle_decrypt_segment)
+    app.router.add_get('/license', proxy.handle_license_request)
+    app.router.add_post('/license', proxy.handle_license_request)
+    app.router.add_post('/generate_urls', proxy.handle_generate_urls)
 
-        url2 = iframe.group(1)
-        parsed = urlparse(url2)
-        h.update({
-            'Referer': f"{parsed.scheme}://{parsed.netloc}/",
-            'Origin': f"{parsed.scheme}://{parsed.netloc}"
-        })
+    # ✅ IMPROVED: FFmpeg stream handler with better buffering
+    async def proxy_hls_stream(request):
+        """Serve segments generated by FFmpeg with optimized buffering"""
+        stream_id = request.match_info['stream_id']
+        filename = request.match_info['filename']
+        file_path = os.path.join("temp_hls", stream_id, filename)
+
+        # Security check
+        try:
+            if not os.path.abspath(file_path).startswith(os.path.abspath("temp_hls")):
+                return web.Response(status=403, text="Access denied")
+        except:
+            return web.Response(status=403, text="Access denied")
+
+        # Notify manager to keep stream alive
+        if hasattr(app, 'ffmpeg_manager'):
+            app.ffmpeg_manager.touch_stream(stream_id)
+
+        # ✅ OPTIMIZED: Faster retry with exponential backoff
+        max_retries = 8  # Reduced from 10
+        for retry in range(max_retries):
+            if os.path.exists(file_path):
+                break
+            wait_time = min(0.05 * (2 ** retry), 1.0)  # Max 1s (was 2s)
+            await asyncio.sleep(wait_time)
         
-        resp2 = s.get(url2, headers=h, timeout=(2, 5))
-        txt = resp2.text
+        if not os.path.exists(file_path):
+            return web.Response(status=404, text="Segment not found")
 
-        # Pattern matching
-        m = {k: p.search(txt) for k, p in PATTERNS.items()}
-        
-        if not all(m.get(k) for k in ['channel_key', 'auth_ts', 'auth_rnd', 'auth_sig', 'auth_host', 'server_lookup', 'host']):
-            return {"resolved_url": final if content[:10].strip().startswith('#EXTM3U') else url, "headers": h}
-
-        ck = m['channel_key'].group(1)
-        ts = m['auth_ts'].group(1)
-        rnd = m['auth_rnd'].group(1)
-        sig = quote(m['auth_sig'].group(1))
-        ah = m['auth_host'].group(1)
-        sl = m['server_lookup'].group(1)
-        host = m['host'].group(1)
-
-        # Auth
-        s.get(f'{ah}{ck}&ts={ts}&rnd={rnd}&sig={sig}', headers=h, timeout=(2, 4))
-
-        # Server lookup
-        srv = s.get(f"https://{parsed.netloc}{sl}{ck}", headers=h, timeout=(2, 4))
-        sk = srv.json().get('server_key')
-        
-        if not sk:
-            return {"resolved_url": url, "headers": h}
-
-        stream = f'https://{sk}{host}{sk}/{ck}/mono.m3u8'
-        
-        return {
-            "resolved_url": stream,
-            "headers": {'User-Agent': h['User-Agent'], 'Referer': h.get('Referer', ''), 'Origin': h.get('Origin', '')}
+        # ✅ IMPROVED: Enhanced headers for WiFi stability
+        headers = {
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Expose-Headers": "*",
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Connection": "keep-alive",
+            "Keep-Alive": "timeout=300, max=1000",  # 5 min timeout
+            "X-Accel-Buffering": "no",  # Disable nginx buffering if present
         }
 
-    except Exception as e:
-        logger.warning(f"Resolve error: {e}")
-        return {"resolved_url": url, "headers": h}
-
-@app.route('/proxy/m3u')
-def proxy_m3u():
-    """Ultra-fast M3U8 proxy"""
-    url = request.args.get('url', '').strip()
-    if not url:
-        return "No URL", 400
-
-    metrics['total_requests'] += 1
-
-    # Headers
-    h = {"User-Agent": "Mozilla/5.0", "Referer": "https://vavoo.to/", "Origin": "https://vavoo.to"}
-    for k, v in request.args.items():
-        if k.startswith('h_'):
-            h[unquote(k[2:]).replace("_", "-")] = unquote(v).strip()
-
-    # URL transform
-    url = url.replace('/stream/stream-', '/embed/stream-')
-    pm = re.search(r'/premium(\d+)/mono\.m3u8$', url)
-    if pm:
-        url = f"https://daddylive.dad/embed/stream-{pm.group(1)}.php"
-
-    try:
-        metrics['active_streams'] += 1
-        
-        result = resolve_fast(url, h)
-        if not result["resolved_url"]:
-            return "Failed to resolve", 500
-
-        s = get_session()
-        resp = s.get(result["resolved_url"], headers=result["headers"], timeout=(2, 8))
-        content = resp.text
-        final = resp.url
-
-        # Direkt M3U ise döndür
-        if "#EXTM3U" in content[:100] and "#EXTINF" not in content[:300]:
-            return Response(content, content_type="application/vnd.apple.mpegurl")
-
-        # M3U8 rewrite
-        parsed = urlparse(final)
-        base = f"{parsed.scheme}://{parsed.netloc}{parsed.path.rsplit('/', 1)[0]}/"
-        hq = "&".join([f"h_{quote(k)}={quote(v)}" for k, v in result["headers"].items()])
-
-        lines = []
-        for line in content.split('\n'):
-            line = line.strip()
-            if not line:
-                lines.append(line)
-            elif line.startswith("#EXT-X-KEY"):
-                # Key rewrite
-                m = re.search(r'URI="([^"]+)"', line)
-                if m:
-                    line = line.replace(m.group(1), f"/proxy/key?url={quote(m.group(1))}&{hq}")
-                lines.append(line)
-            elif line[0] != '#':
-                # Segment rewrite
-                seg = urljoin(base, line)
-                lines.append(f"/proxy/ts?url={quote(seg)}&{hq}")
-            else:
-                lines.append(line)
-
-        metrics['active_streams'] -= 1
-        return Response('\n'.join(lines), content_type="application/vnd.apple.mpegurl")
-
-    except Exception as e:
-        metrics['active_streams'] -= 1
-        logger.error(f"M3U error: {e}")
-        return f"Error: {e}", 500
-
-@app.route('/proxy/resolve')
-def proxy_resolve():
-    """Fast resolve"""
-    url = request.args.get('url', '').strip()
-    if not url:
-        return "No URL", 400
-
-    metrics['total_requests'] += 1
-
-    h = {}
-    for k, v in request.args.items():
-        if k.startswith('h_'):
-            h[unquote(k[2:]).replace("_", "-")] = unquote(v).strip()
-
-    try:
-        result = resolve_fast(url, h)
-        if not result["resolved_url"]:
-            return "Failed", 500
-            
-        hq = "&".join([f"h_{quote(k)}={quote(v)}" for k, v in result["headers"].items()])
-        
-        return Response(
-            f"#EXTM3U\n#EXTINF:-1,Stream\n/proxy/m3u?url={quote(result['resolved_url'])}&{hq}",
-            content_type="application/vnd.apple.mpegurl"
-        )
-    except Exception as e:
-        return f"Error: {e}", 500
-
-@app.route('/proxy/ts')
-def proxy_ts():
-    """Ultra-fast segment proxy - zero buffer"""
-    url = request.args.get('url', '').strip()
-    if not url:
-        return "No URL", 400
-
-    h = {}
-    for k, v in request.args.items():
-        if k.startswith('h_'):
-            h[unquote(k[2:]).replace("_", "-")] = unquote(v).strip()
-
-    try:
-        s = get_session()
-        resp = s.get(url, headers=h, stream=True, timeout=(2, 20))
-        
-        def generate():
+        # Handle m3u8 playlists
+        if filename.endswith('.m3u8'):
             try:
-                # Direkt stream - minimum buffer
-                for chunk in resp.iter_content(chunk_size=65536):
-                    if chunk:
-                        yield chunk
-            finally:
-                try:
-                    resp.close()
-                except:
-                    pass
+                content = ""
+                # ✅ Increased retries for playlist
+                for attempt in range(5):
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        content = f.read()
+                    if content.strip():
+                        break
+                    await asyncio.sleep(0.1)
+                
+                if not content.strip():
+                    return web.Response(status=503, text="Playlist not ready")
+                
+                headers['Content-Type'] = 'application/vnd.apple.mpegurl'
+                return web.Response(text=content, headers=headers)
+            except Exception as e:
+                logging.error(f"Error reading playlist {file_path}: {e}")
+                return web.Response(status=500, text="Internal Server Error")
+
+        # Handle TS segments with proper content type
+        if filename.endswith('.ts'):
+            headers['Content-Type'] = 'video/MP2T'
+            headers['Accept-Ranges'] = 'bytes'
         
-        return Response(
-            generate(),
-            content_type="video/mp2t",
-            headers={
-                'Cache-Control': 'public, max-age=3600',
-                'X-Accel-Buffering': 'no'
-            }
-        )
-    except Exception as e:
-        return f"Error: {e}", 500
+        # ✅ IMPROVED: Stream file in chunks for better stability
+        try:
+            stat = os.stat(file_path)
+            file_size = stat.st_size
+            
+            # Handle range requests properly
+            range_header = request.headers.get('Range')
+            if range_header:
+                # Parse range header
+                range_match = range_header.replace('bytes=', '').split('-')
+                start = int(range_match[0]) if range_match[0] else 0
+                end = int(range_match[1]) if len(range_match) > 1 and range_match[1] else file_size - 1
+                
+                headers['Content-Range'] = f'bytes {start}-{end}/{file_size}'
+                headers['Content-Length'] = str(end - start + 1)
+                
+                response = web.StreamResponse(status=206, headers=headers)
+                await response.prepare(request)
+                
+                with open(file_path, 'rb') as f:
+                    f.seek(start)
+                    remaining = end - start + 1
+                    chunk_size = 128 * 1024  # 128KB chunks - faster streaming
+                    
+                    while remaining > 0:
+                        chunk = f.read(min(chunk_size, remaining))
+                        if not chunk:
+                            break
+                        await response.write(chunk)
+                        remaining -= len(chunk)
+                
+                await response.write_eof()
+                return response
+            else:
+                # No range request - send full file
+                headers['Content-Length'] = str(file_size)
+                return web.FileResponse(file_path, headers=headers, chunk_size=128*1024)
+                
+        except Exception as e:
+            logging.error(f"Error serving segment {file_path}: {e}")
+            return web.Response(status=500, text="Internal Server Error")
 
-@app.route('/proxy/key')
-def proxy_key():
-    """Fast key proxy"""
-    url = request.args.get('url', '').strip()
-    if not url:
-        return "No URL", 400
+    app.router.add_get('/ffmpeg_stream/{stream_id}/{filename}', proxy_hls_stream)
+    app.router.add_get('/proxy/ip', proxy.handle_proxy_ip)
 
-    h = {}
-    for k, v in request.args.items():
-        if k.startswith('h_'):
-            h[unquote(k[2:]).replace("_", "-")] = unquote(v).strip()
+    # Setup recording/DVR routes
+    if DVR_ENABLED:
+        setup_recording_routes(app, recording_manager)
 
-    try:
-        s = get_session()
-        resp = s.get(url, headers=h, timeout=(2, 5))
-        return Response(resp.content, content_type="application/octet-stream")
-    except Exception as e:
-        return f"Error: {e}", 500
+    # CORS handler
+    app.router.add_route('OPTIONS', '/{tail:.*}', proxy.handle_options)
 
-@app.route('/')
-def index():
-    return render_template_string(HTML_TEMPLATE)
+    async def cleanup_handler(app):
+        await proxy.cleanup()
+    app.on_cleanup.append(cleanup_handler)
 
-@app.route('/api/stats')
-def stats():
-    uptime = (time.time() - metrics['start_time']) / 3600
-    return jsonify({
-        "requests": metrics['total_requests'],
-        "streams": metrics['active_streams'],
-        "uptime": f"{uptime:.1f}"
-    })
+    async def on_startup(app):
+        asyncio.create_task(ffmpeg_manager.cleanup_loop())
+        if DVR_ENABLED:
+            asyncio.create_task(recording_manager.cleanup_loop())
+    app.on_startup.append(on_startup)
 
-@app.route('/health')
-def health():
-    return jsonify({"status": "ok", "version": "3.0"})
+    async def on_shutdown(app):
+        if DVR_ENABLED:
+            await recording_manager.shutdown()
+    app.on_shutdown.append(on_shutdown)
+
+    return app
+
+app = create_app()
+
+def main():
+    """Funzione principale per avviare il server."""
+    if sys.platform == 'win32':
+        logging.getLogger('asyncio').setLevel(logging.CRITICAL)
+
+    hf_space = os.environ.get('SYSTEM') == 'spaces' or os.environ.get('HF_SPACE', 'false').lower() == 'true'
+
+    print("=" * 60)
+    if hf_space:
+        print("🚀 HF Space HLS Proxy - WiFi Optimized")
+        print(f"📡 URL: https://umitm0d-pre.hf.space")
+        print("⚙️ Optimized for HF Space resources")
+        print(f"🔧 Port: {PORT}")
+        print("=" * 60)
+        try:
+            from gunicorn.app.base import BaseApplication
+            
+            class HFApplication(BaseApplication):
+                def __init__(self, app):
+                    self.application = app
+                    super().__init__()
+
+                def load_config(self):
+                    # ✅ OPTIMIZED: Balanced timeouts for stability
+                    self.cfg.set("bind", f"0.0.0.0:{PORT}")
+                    self.cfg.set("workers", 2)  # ✅ 2 workers for better performance
+                    self.cfg.set("worker_class", "aiohttp.GunicornWebWorker")
+                    self.cfg.set("timeout", 180)  # ✅ 3 minutes
+                    self.cfg.set("keepalive", 60)  # ✅ 60s keepalive
+                    self.cfg.set("graceful_timeout", 90)  # ✅ Graceful shutdown
+                    self.cfg.set("accesslog", None)
+                    self.cfg.set("errorlog", "-")
+                    self.cfg.set("loglevel", "warning")
+                    self.cfg.set("preload_app", True)
+                    self.cfg.set("worker_connections", 1000)
+                    # ✅ Request limits for memory management
+                    self.cfg.set("max_requests", 10000)
+                    self.cfg.set("max_requests_jitter", 1000)
+
+                def load(self):
+                    return self.application
+
+            HFApplication(app).run()
+        except ImportError as e:
+            print(f"⚠️ Gunicorn not available: {e}, using aiohttp")
+            web.run_app(
+                app,
+                host='0.0.0.0',
+                port=PORT,
+                access_log=None,
+            )
+    else:
+        print("🚀 HLS Proxy Server (Local Mode)")
+        print(f"📡 http://localhost:{PORT}")
+        
+        try:
+            import socket
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80))
+            wifi_ip = s.getsockname()[0]
+            s.close()
+            print(f"📱 http://{wifi_ip}:{PORT} (WiFi/LAN)")
+            print(f"💡 On phone: Open browser to http://{wifi_ip}:{PORT}")
+        except Exception as e:
+            print(f"⚠️ Could not detect WiFi IP: {e}")
+        
+        print("=" * 60)
+        print("🔗 Available Endpoints:")
+        print("  • / - Main page")
+        print("  • /builder - Playlist builder")
+        print("  • /info - Server info")
+        if DVR_ENABLED:
+            print("  • /recordings - DVR recordings")
+        print("  • /proxy/hls/manifest.m3u8?url=<URL> - Stream proxy")
+        print("  • /playlist?url=<definitions> - Playlist generator")
+        print("=" * 60)
+        
+        web.run_app(app, host='0.0.0.0', port=PORT)
 
 if __name__ == '__main__':
-    logger.info("StreamFlow Fast v3.0 starting...")
-    app.run(host="0.0.0.0", port=7860, debug=False, threaded=True)
+    main()

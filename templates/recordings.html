@@ -1,0 +1,1258 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DVR Kayıtları - HLS Proxy Sunucusu</title>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <meta name="description" content="ÜmitM0d tarafından geliştirilen modern HLS kayıt yönetim arayüzü">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+
+        :root {
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --bg-tertiary: #334155;
+            --surface: rgba(255, 255, 255, 0.05);
+            --surface-glass: rgba(255, 255, 255, 0.08);
+            --surface-elevated: rgba(255, 255, 255, 0.12);
+            --primary-gradient: linear-gradient(135deg, #8b5cf6 0%, #3b82f6 100%);
+            --accent-primary: #6366f1;
+            --accent-secondary: #8b5cf6;
+            --accent-success: #10b981;
+            --accent-warning: #f59e0b;
+            --accent-error: #ef4444;
+            --accent-info: #06b6d4;
+            --neon-green: #39ff14;
+            --neon-red: #ff3131;
+            --neon-blue: #3b82f6;
+            --text-primary: #f8fafc;
+            --text-secondary: #cbd5e1;
+            --text-muted: #94a3b8;
+            --border-primary: rgba(255, 255, 255, 0.1);
+            --border-accent: rgba(255, 255, 255, 0.2);
+            --glow-primary: 0 0 25px rgba(99, 102, 241, 0.4);
+            --glow-secondary: 0 0 35px rgba(139, 92, 246, 0.5);
+            --transition-fast: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            --transition-normal: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            --border-radius: 12px;
+            --border-radius-large: 20px;
+            --border-radius-xl: 28px;
+            --spacing-xs: 0.5rem;
+            --spacing-sm: 0.75rem;
+            --spacing-md: 1rem;
+            --spacing-lg: 1.5rem;
+            --spacing-xl: 2rem;
+            --spacing-2xl: 3rem;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', 'Poppins', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+            line-height: 1.6;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background:
+                radial-gradient(circle at 15% 40%, rgba(139, 92, 246, 0.15) 0%, transparent 55%),
+                radial-gradient(circle at 85% 25%, rgba(59, 130, 246, 0.15) 0%, transparent 55%),
+                radial-gradient(circle at 45% 85%, rgba(239, 68, 68, 0.1) 0%, transparent 55%);
+            animation: backgroundMove 25s ease-in-out infinite;
+            z-index: -2;
+        }
+
+        body::after {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                linear-gradient(45deg, transparent 30%, rgba(139, 92, 246, 0.03) 50%, transparent 70%);
+            animation: shine 8s ease-in-out infinite;
+            z-index: -1;
+        }
+
+        @keyframes backgroundMove {
+            0%, 100% { 
+                transform: translate(0, 0) scale(1);
+                filter: hue-rotate(0deg);
+            }
+            33% { 
+                transform: translate(-20px, 30px) scale(1.02);
+                filter: hue-rotate(60deg);
+            }
+            66% { 
+                transform: translate(20px, -20px) scale(0.98);
+                filter: hue-rotate(120deg);
+            }
+        }
+
+        @keyframes shine {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 0.7; }
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: var(--spacing-xl);
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--spacing-2xl);
+            padding-bottom: var(--spacing-lg);
+            border-bottom: 1px solid var(--border-primary);
+            position: relative;
+        }
+
+        .header::after {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: 0;
+            width: 100px;
+            height: 2px;
+            background: var(--primary-gradient);
+            border-radius: 2px;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-md);
+        }
+
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            background: var(--primary-gradient);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: white;
+            box-shadow: var(--glow-primary);
+        }
+
+        .header h1 {
+            font-family: 'Poppins', sans-serif;
+            font-size: 2.25rem;
+            font-weight: 700;
+            background: var(--primary-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: -0.5px;
+        }
+
+        .developer-badge {
+            background: rgba(139, 92, 246, 0.2);
+            color: var(--accent-secondary);
+            padding: var(--spacing-xs) var(--spacing-sm);
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            border: 1px solid rgba(139, 92, 246, 0.3);
+            backdrop-filter: blur(10px);
+        }
+
+        .nav-links {
+            display: flex;
+            gap: var(--spacing-sm);
+            background: var(--surface-glass);
+            padding: var(--spacing-xs);
+            border-radius: var(--border-radius-large);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--border-primary);
+        }
+
+        .nav-link {
+            color: var(--text-secondary);
+            text-decoration: none;
+            padding: var(--spacing-sm) var(--spacing-lg);
+            border-radius: var(--border-radius);
+            transition: var(--transition-fast);
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-xs);
+        }
+
+        .nav-link:hover {
+            color: var(--text-primary);
+            background: var(--surface-elevated);
+            transform: translateY(-1px);
+        }
+
+        .nav-link.active {
+            background: var(--primary-gradient);
+            color: white;
+            box-shadow: var(--glow-primary);
+        }
+
+        .card {
+            background: var(--surface-glass);
+            border: 1px solid var(--border-primary);
+            border-radius: var(--border-radius-xl);
+            padding: var(--spacing-xl);
+            backdrop-filter: blur(20px);
+            margin-bottom: var(--spacing-lg);
+            transition: var(--transition-normal);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--accent-primary), transparent);
+        }
+
+        .card:hover {
+            border-color: var(--border-accent);
+            transform: translateY(-2px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--spacing-lg);
+        }
+
+        .card-title {
+            font-family: 'Poppins', sans-serif;
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+        }
+
+        .card-title::before {
+            content: '';
+            width: 4px;
+            height: 20px;
+            background: var(--accent-primary);
+            border-radius: 2px;
+        }
+
+        .form-group {
+            margin-bottom: var(--spacing-lg);
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: var(--spacing-xs);
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: var(--spacing-md);
+            background: var(--surface);
+            border: 1px solid var(--border-primary);
+            border-radius: var(--border-radius);
+            color: var(--text-primary);
+            font-size: 1rem;
+            transition: var(--transition-fast);
+            font-family: 'Inter', sans-serif;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+            box-shadow: var(--glow-primary);
+            background: var(--surface-elevated);
+        }
+
+        .form-input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: var(--spacing-md);
+        }
+
+        @media (max-width: 768px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+            
+            .header {
+                flex-direction: column;
+                gap: var(--spacing-md);
+                text-align: center;
+            }
+            
+            .header::after {
+                left: 50%;
+                transform: translateX(-50%);
+            }
+            
+            .nav-links {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: var(--spacing-sm);
+            padding: var(--spacing-md) var(--spacing-xl);
+            border: none;
+            border-radius: var(--border-radius);
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition-normal);
+            font-family: 'Inter', sans-serif;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+
+        .btn:hover::before {
+            width: 300px;
+            height: 300px;
+        }
+
+        .btn-primary {
+            background: var(--primary-gradient);
+            color: white;
+            box-shadow: var(--glow-primary);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--glow-secondary);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            color: white;
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.3);
+        }
+
+        .btn-danger:hover {
+            opacity: 0.9;
+            transform: translateY(-2px);
+            box-shadow: 0 0 30px rgba(239, 68, 68, 0.4);
+        }
+
+        .btn-secondary {
+            background: var(--surface-glass);
+            color: var(--text-primary);
+            border: 1px solid var(--border-primary);
+        }
+
+        .btn-secondary:hover {
+            background: var(--surface-elevated);
+            border-color: var(--border-accent);
+            transform: translateY(-2px);
+        }
+
+        .btn-sm {
+            padding: var(--spacing-sm) var(--spacing-md);
+            font-size: 0.875rem;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .recordings-list {
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-md);
+        }
+
+        .recording-item {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: var(--spacing-lg);
+            padding: var(--spacing-lg);
+            background: var(--surface);
+            border: 1px solid var(--border-primary);
+            border-radius: var(--border-radius-large);
+            transition: var(--transition-fast);
+            position: relative;
+        }
+
+        .recording-item::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 3px;
+            background: var(--primary-gradient);
+            border-radius: 3px 0 0 3px;
+            opacity: 0;
+            transition: var(--transition-fast);
+        }
+
+        .recording-item:hover {
+            border-color: var(--border-accent);
+            background: var(--surface-glass);
+            transform: translateX(5px);
+        }
+
+        .recording-item:hover::before {
+            opacity: 1;
+        }
+
+        .recording-info h3 {
+            font-family: 'Poppins', sans-serif;
+            font-size: 1.25rem;
+            margin-bottom: var(--spacing-xs);
+            color: var(--text-primary);
+        }
+
+        .recording-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--spacing-md);
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+
+        .recording-meta span {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-xs);
+            background: var(--surface);
+            padding: var(--spacing-xs) var(--spacing-sm);
+            border-radius: var(--border-radius);
+        }
+
+        .recording-actions {
+            display: flex;
+            gap: var(--spacing-sm);
+            align-items: center;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--spacing-xs);
+            padding: var(--spacing-xs) var(--spacing-sm);
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .status-recording {
+            background: rgba(239, 68, 68, 0.15);
+            color: var(--neon-red);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        .status-recording::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            background: var(--neon-red);
+            border-radius: 50%;
+            animation: pulse 1.5s ease-in-out infinite;
+            box-shadow: 0 0 10px var(--neon-red);
+        }
+
+        @keyframes pulse {
+            0%, 100% { 
+                opacity: 1;
+                transform: scale(1);
+            }
+            50% { 
+                opacity: 0.5;
+                transform: scale(0.8);
+            }
+        }
+
+        .status-completed {
+            background: rgba(16, 185, 129, 0.15);
+            color: var(--accent-success);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+
+        .status-stopped {
+            background: rgba(245, 158, 11, 0.15);
+            color: var(--accent-warning);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+        }
+
+        .status-failed {
+            background: rgba(239, 68, 68, 0.15);
+            color: var(--accent-error);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: var(--spacing-2xl);
+            color: var(--text-secondary);
+        }
+
+        .empty-state-icon {
+            font-size: 4rem;
+            margin-bottom: var(--spacing-md);
+            opacity: 0.5;
+        }
+
+        .empty-state h3 {
+            font-size: 1.5rem;
+            margin-bottom: var(--spacing-sm);
+            color: var(--text-primary);
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: var(--spacing-md) var(--spacing-lg);
+            border-radius: var(--border-radius);
+            color: white;
+            font-weight: 500;
+            z-index: 1000;
+            animation: slideIn 0.3s ease-out;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            min-width: 300px;
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+        }
+
+        .toast::before {
+            font-size: 1.25rem;
+        }
+
+        .toast-success {
+            background: rgba(16, 185, 129, 0.9);
+        }
+
+        .toast-success::before {
+            content: '✓';
+        }
+
+        .toast-error {
+            background: rgba(239, 68, 68, 0.9);
+        }
+
+        .toast-error::before {
+            content: '✗';
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%) translateY(20px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0) translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: var(--transition-normal);
+            backdrop-filter: blur(10px);
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-primary);
+            border-radius: var(--border-radius-xl);
+            padding: var(--spacing-xl);
+            max-width: 500px;
+            width: 90%;
+            transform: scale(0.9) translateY(20px);
+            transition: var(--transition-normal);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .modal::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--accent-primary), transparent);
+        }
+
+        .modal-overlay.active .modal {
+            transform: scale(1) translateY(0);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--spacing-lg);
+        }
+
+        .modal-header h3 {
+            font-family: 'Poppins', sans-serif;
+            font-size: 1.5rem;
+            color: var(--text-primary);
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 1.5rem;
+            cursor: pointer;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: var(--transition-fast);
+        }
+
+        .modal-close:hover {
+            background: var(--surface);
+            color: var(--text-primary);
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: var(--spacing-md);
+            justify-content: flex-end;
+            margin-top: var(--spacing-xl);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: var(--spacing-md);
+            margin-bottom: var(--spacing-xl);
+        }
+
+        .stat-card {
+            background: var(--surface-glass);
+            padding: var(--spacing-lg);
+            border-radius: var(--border-radius-large);
+            text-align: center;
+            border: 1px solid var(--border-primary);
+            transition: var(--transition-fast);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card:hover {
+            border-color: var(--border-accent);
+            transform: translateY(-3px);
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--accent-primary), transparent);
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            background: var(--primary-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: var(--spacing-xs);
+        }
+
+        .stat-label {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid var(--surface);
+            border-top-color: var(--accent-primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: var(--spacing-sm);
+            flex-wrap: wrap;
+        }
+
+        .developer-footer {
+            text-align: center;
+            margin-top: var(--spacing-2xl);
+            padding-top: var(--spacing-lg);
+            border-top: 1px solid var(--border-primary);
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+
+        .developer-footer a {
+            color: var(--accent-secondary);
+            text-decoration: none;
+            transition: var(--transition-fast);
+        }
+
+        .developer-footer a:hover {
+            color: var(--accent-primary);
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">
+                <div class="logo-icon">DVR</div>
+                <div>
+                    <h1>DVR Kayıt Yönetimi</h1>
+                    <div class="developer-badge">Geliştirici: ÜmitM0d</div>
+                </div>
+            </div>
+            <nav class="nav-links">
+                <a href="/" class="nav-link active">
+                    <span>Ana Sayfa</span>
+                </a>
+                <a href="/builder" class="nav-link">
+                    <span>Builder</span>
+                </a>
+                <a href="/info" class="nav-link">
+                    <span>Bilgiler</span>
+                </a>
+            </nav>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value" id="activeCount">0</div>
+                <div class="stat-label">Aktif Kayıt</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="completedCount">0</div>
+                <div class="stat-label">Tamamlanan</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="totalSize">0 MB</div>
+                <div class="stat-label">Toplam Boyut</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="totalRecordings">0</div>
+                <div class="stat-label">Toplam Kayıt</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title">Yeni Kayıt Başlat</h2>
+            </div>
+            <form id="recordingForm">
+                <div class="form-group">
+                    <label class="form-label" for="url">Stream URL *</label>
+                    <input type="url" id="url" class="form-input" 
+                           placeholder="https://example.com/stream.m3u8" 
+                           required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label" for="name">Kayıt Adı</label>
+                        <input type="text" id="name" class="form-input" 
+                               placeholder="Kaydım">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="duration">Süre (saniye)</label>
+                        <input type="number" id="duration" class="form-input" 
+                               placeholder="3600 (1 saat)">
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary" id="startBtn">
+                    <span>Kaydı Başlat</span>
+                </button>
+            </form>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title">Kayıtlar</h2>
+                <div class="action-buttons">
+                    <button class="btn btn-secondary btn-sm" onclick="loadRecordings()">
+                        <span>Yenile</span>
+                    </button>
+                    <button class="btn btn-danger btn-sm" onclick="openDeleteAllModal()">
+                        <span>Hepsini Sil</span>
+                    </button>
+                </div>
+            </div>
+            <div id="recordingsList" class="recordings-list">
+                <div class="empty-state">
+                    <div class="empty-state-icon">📁</div>
+                    <h3>Kayıt Bulunamadı</h3>
+                    <p>Yeni bir kayıt başlatmak için yukarıdaki formu kullanın.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="developer-footer">
+            <p>© 2024 HLS Proxy Sunucusu | Geliştirici: <a href="#" target="_blank">ÜmitM0d</a></p>
+            <p style="margin-top: var(--spacing-xs); opacity: 0.7;">Modern ve şık kayıt yönetim arayüzü</p>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="deleteModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Kaydı Sil</h3>
+                <button class="modal-close" onclick="closeDeleteModal()">&times;</button>
+            </div>
+            <p>Bu kaydı silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.</p>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeDeleteModal()">İptal</button>
+                <button class="btn btn-danger" id="confirmDeleteBtn">Sil</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="deleteAllModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Tüm Kayıtları Sil</h3>
+                <button class="modal-close" onclick="closeDeleteAllModal()">&times;</button>
+            </div>
+            <p style="color: var(--accent-error); font-weight: 600; margin-bottom: var(--spacing-md);">
+                ⚠️ UYARI: Bu işlem AKTİF kayıtlar dahil TÜM kayıtları silecektir!
+            </p>
+            <p>Bu işlem geri alınamaz. Devam etmek istiyor musunuz?</p>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeDeleteAllModal()">İptal</button>
+                <button class="btn btn-danger" id="confirmDeleteAllBtn">Hepsini Sil</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_PASSWORD = new URLSearchParams(window.location.search).get('api_password') || '';
+        let deleteRecordingId = null;
+
+        function getAuthParams() {
+            return API_PASSWORD ? `?api_password=${encodeURIComponent(API_PASSWORD)}` : '';
+        }
+
+        function getAuthHeaders() {
+            const headers = { 'Content-Type': 'application/json' };
+            if (API_PASSWORD) {
+                headers['x-api-password'] = API_PASSWORD;
+            }
+            return headers;
+        }
+
+        function showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        function formatBytes(bytes) {
+            if (!bytes || bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function formatDuration(seconds) {
+            if (!seconds) return '-';
+            const h = Math.floor(seconds / 3600);
+            const m = Math.floor((seconds % 3600) / 60);
+            const s = seconds % 60;
+            if (h > 0) return `${h}sa ${m}d ${s}s`;
+            if (m > 0) return `${m}d ${s}s`;
+            return `${s}s`;
+        }
+
+        function formatDate(isoString) {
+            if (!isoString) return '-';
+            const date = new Date(isoString);
+            return new Intl.DateTimeFormat('tr-TR', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            }).format(date);
+        }
+
+        function getStatusBadge(status, isActive) {
+            if (isActive) {
+                return '<span class="status-badge status-recording">Kayıt Yapılıyor</span>';
+            }
+            const statusMap = {
+                'completed': { class: 'status-completed', text: 'Tamamlandı' },
+                'stopped': { class: 'status-stopped', text: 'Durduruldu' },
+                'failed': { class: 'status-failed', text: 'Başarısız' }
+            };
+            const statusInfo = statusMap[status] || { class: '', text: status };
+            return `<span class="status-badge ${statusInfo.class}">${statusInfo.text}</span>`;
+        }
+
+        async function loadRecordings() {
+            try {
+                const listEl = document.getElementById('recordingsList');
+                listEl.innerHTML = `
+                    <div class="empty-state">
+                        <div class="loading"></div>
+                        <p>Kayıtlar yükleniyor...</p>
+                    </div>
+                `;
+
+                const response = await fetch(`/api/recordings${getAuthParams()}`, {
+                    headers: getAuthHeaders()
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Kayıtlar yüklenirken bir hata oluştu');
+                }
+                
+                const data = await response.json();
+                const recordings = data.recordings || [];
+
+                // İstatistikleri güncelle
+                const active = recordings.filter(r => r.is_active).length;
+                const completed = recordings.filter(r => r.status === 'completed').length;
+                const totalSize = recordings.reduce((sum, r) => sum + (r.file_size_bytes || 0), 0);
+
+                document.getElementById('activeCount').textContent = active;
+                document.getElementById('completedCount').textContent = completed;
+                document.getElementById('totalSize').textContent = formatBytes(totalSize);
+                document.getElementById('totalRecordings').textContent = recordings.length;
+
+                if (recordings.length === 0) {
+                    listEl.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">📁</div>
+                            <h3>Kayıt Bulunamadı</h3>
+                            <p>Yeni bir kayıt başlatmak için yukarıdaki formu kullanın.</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                listEl.innerHTML = recordings.map(rec => `
+                    <div class="recording-item" data-id="${rec.id}">
+                        <div class="recording-info">
+                            <h3>${rec.name || 'İsimsiz Kayıt'}</h3>
+                            <div class="recording-meta">
+                                ${getStatusBadge(rec.status, rec.is_active)}
+                                <span title="Başlangıç zamanı">⏰ ${formatDate(rec.started_at)}</span>
+                                ${rec.is_active ? `<span>⏱️ Geçen Süre: ${formatDuration(rec.elapsed_seconds)}</span>` : ''}
+                                ${rec.duration_seconds ? `<span>⏳ Toplam Süre: ${formatDuration(rec.duration_seconds)}</span>` : ''}
+                                ${rec.file_size_bytes ? `<span>💾 Boyut: ${formatBytes(rec.file_size_bytes)}</span>` : ''}
+                            </div>
+                        </div>
+                        <div class="recording-actions">
+                            ${rec.is_active ? `
+                                <button class="btn btn-danger btn-sm" onclick="stopRecording('${rec.id}')" title="Kaydı Durdur">
+                                    ⏹️ Durdur
+                                </button>
+                            ` : `
+                                ${rec.file_size_bytes ? `
+                                    <a href="/api/recordings/${rec.id}/stream${getAuthParams()}" 
+                                       target="_blank" 
+                                       class="btn btn-secondary btn-sm"
+                                       title="Kaydı Oynat">
+                                        ▶️ Oynat
+                                    </a>
+                                    <a href="/api/recordings/${rec.id}/download${getAuthParams()}" 
+                                       class="btn btn-secondary btn-sm"
+                                       title="Kaydı İndir">
+                                        ⬇️ İndir
+                                    </a>
+                                ` : ''}
+                                <button class="btn btn-danger btn-sm" 
+                                        onclick="openDeleteModal('${rec.id}')"
+                                        title="Kaydı Sil">
+                                    🗑️ Sil
+                                </button>
+                            `}
+                        </div>
+                    </div>
+                `).join('');
+
+            } catch (error) {
+                console.error('Kayıtlar yüklenirken hata:', error);
+                showToast(error.message || 'Kayıtlar yüklenemedi', 'error');
+                
+                document.getElementById('recordingsList').innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">❌</div>
+                        <h3>Hata Oluştu</h3>
+                        <p>${error.message || 'Kayıtlar yüklenemedi'}</p>
+                        <button class="btn btn-secondary" onclick="loadRecordings()" style="margin-top: var(--spacing-md);">
+                            Tekrar Dene
+                        </button>
+                    </div>
+                `;
+            }
+        }
+
+        async function startRecording(event) {
+            event.preventDefault();
+
+            const url = document.getElementById('url').value.trim();
+            const name = document.getElementById('name').value.trim();
+            const duration = document.getElementById('duration').value;
+
+            if (!url) {
+                showToast('Lütfen bir stream URL\'si girin', 'error');
+                return;
+            }
+
+            const startBtn = document.getElementById('startBtn');
+            const originalText = startBtn.innerHTML;
+            
+            startBtn.disabled = true;
+            startBtn.innerHTML = '<span class="loading"></span> <span>Başlatılıyor...</span>';
+
+            try {
+                const response = await fetch(`/api/recordings/start${getAuthParams()}`, {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({
+                        url,
+                        name: name || undefined,
+                        duration: duration ? parseInt(duration) : undefined
+                    })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Kayıt başlatılamadı');
+                }
+
+                showToast('Kayıt başarıyla başlatıldı');
+                document.getElementById('recordingForm').reset();
+                loadRecordings();
+
+            } catch (error) {
+                console.error('Kayıt başlatılırken hata:', error);
+                showToast(error.message || 'Kayıt başlatılamadı', 'error');
+            } finally {
+                startBtn.disabled = false;
+                startBtn.innerHTML = originalText;
+            }
+        }
+
+        async function stopRecording(id) {
+            if (!confirm('Bu kaydı durdurmak istediğinizden emin misiniz?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/recordings/${id}/stop${getAuthParams()}`, {
+                    method: 'POST',
+                    headers: getAuthHeaders()
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Kayıt durdurulamadı');
+                }
+
+                showToast('Kayıt durduruldu');
+                loadRecordings();
+
+            } catch (error) {
+                console.error('Kayıt durdurulurken hata:', error);
+                showToast(error.message || 'Kayıt durdurulamadı', 'error');
+            }
+        }
+
+        function openDeleteModal(id) {
+            deleteRecordingId = id;
+            document.getElementById('deleteModal').classList.add('active');
+        }
+
+        function closeDeleteModal() {
+            deleteRecordingId = null;
+            document.getElementById('deleteModal').classList.remove('active');
+        }
+
+        async function confirmDelete() {
+            if (!deleteRecordingId) return;
+
+            const btn = document.getElementById('confirmDeleteBtn');
+            const originalText = btn.textContent;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading"></span> <span>Siliniyor...</span>';
+
+            try {
+                const response = await fetch(`/api/recordings/${deleteRecordingId}${getAuthParams()}`, {
+                    method: 'DELETE',
+                    headers: getAuthHeaders()
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Kayıt silinemedi');
+                }
+
+                showToast('Kayıt başarıyla silindi');
+                closeDeleteModal();
+                loadRecordings();
+
+            } catch (error) {
+                console.error('Kayıt silinirken hata:', error);
+                showToast(error.message || 'Kayıt silinemedi', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = originalText;
+            }
+        }
+
+        function openDeleteAllModal() {
+            document.getElementById('deleteAllModal').classList.add('active');
+        }
+
+        function closeDeleteAllModal() {
+            document.getElementById('deleteAllModal').classList.remove('active');
+        }
+
+        async function confirmDeleteAll() {
+            const btn = document.getElementById('confirmDeleteAllBtn');
+            const originalText = btn.textContent;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading"></span> <span>Siliniyor...</span>';
+
+            try {
+                const response = await fetch(`/api/recordings/all${getAuthParams()}`, {
+                    method: 'DELETE',
+                    headers: getAuthHeaders()
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Kayıtlar silinemedi');
+                }
+
+                showToast(`${data.deleted || 0} kayıt silindi`);
+                closeDeleteAllModal();
+                loadRecordings();
+
+            } catch (error) {
+                console.error('Kayıtlar silinirken hata:', error);
+                showToast(error.message || 'Kayıtlar silinemedi', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = originalText;
+            }
+        }
+
+        // Event listeners
+        document.getElementById('recordingForm').addEventListener('submit', startRecording);
+        document.getElementById('confirmDeleteBtn').addEventListener('click', confirmDelete);
+        document.getElementById('confirmDeleteAllBtn').addEventListener('click', confirmDeleteAll);
+
+        // İlk yükleme
+        loadRecordings();
+
+        // Aktif kayıtlar için otomatik yenileme (10 saniyede bir)
+        setInterval(loadRecordings, 10000);
+
+        // Sayfa görünürlüğü değiştiğinde yenile
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) {
+                loadRecordings();
+            }
+        });
+    </script>
+</body>
+</html>

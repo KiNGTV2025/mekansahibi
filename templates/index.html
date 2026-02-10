@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HLS Proxy Sunucusu | ÜmitM0d</title>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+        :root {
+            /* Koyu Tema Renkleri */
+            --bg-primary: #0f0f23;
+            --bg-secondary: #1a1a2e;
+            --bg-tertiary: #16213e;
+            --surface: rgba(255, 255, 255, 0.05);
+            --surface-glass: rgba(255, 255, 255, 0.08);
+            --surface-elevated: rgba(255, 255, 255, 0.12);
+
+            /* Modern Koyu Gradyanlar */
+            --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --secondary-gradient: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+            --accent-gradient: linear-gradient(135deg, #ff6b6b 0%, #4ecdc4 100%);
+            --neon-gradient: linear-gradient(90deg, #00f5ff, #ff00ff, #ffff00, #ff00ff, #00f5ff);
+            --dark-gradient: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+
+            /* Vurgu Renkleri */
+            --accent-primary: #6366f1;
+            --accent-secondary: #8b5cf6;
+            --accent-success: #10b981;
+            --accent-warning: #f59e0b;
+            --accent-error: #ef4444;
+            --accent-info: #06b6d4;
+            --neon-blue: #00f5ff;
+            --neon-purple: #bf00ff;
+            --neon-green: #39ff14;
+
+            /* Metin Renkleri */
+            --text-primary: #ffffff;
+            --text-secondary: #a1a1aa;
+            --text-muted: #71717a;
+            --text-accent: #e4e4e7;
+
+            /* Kenarlık & Gölge */
+            --border-primary: rgba(255, 255, 255, 0.1);
+            --border-accent: rgba(255, 255, 255, 0.2);
+            --glow-primary: 0 0 20px rgba(99, 102, 241, 0.3);
+            --glow-secondary: 0 0 30px rgba(139, 92, 246, 0.4);
+            --glow-neon: 0 0 40px rgba(0, 245, 255, 0.6);
+            --shadow-dark: 0 25px 50px -12px rgba(0, 0, 0, 0.8);
+            --shadow-glow: 0 0 60px rgba(99, 102, 241, 0.15);
+
+            /* Animasyon */
+            --transition-fast: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+            --transition-normal: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            --transition-slow: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+
+            /* Ölçüler */
+            --border-radius: 16px;
+            --border-radius-large: 24px;
+            --spacing-xs: 0.25rem;
+            --spacing-sm: 0.5rem;
+            --spacing-md: 1rem;
+            --spacing-lg: 1.5rem;
+            --spacing-xl: 2rem;
+            --spacing-2xl: 3rem;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* Animasyonlu Arkaplan */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background:
+                radial-gradient(circle at 20% 50%, rgba(120, 119, 198, 0.3) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.3) 0%, transparent 50%),
+                radial-gradient(circle at 40% 80%, rgba(120, 219, 226, 0.3) 0%, transparent 50%);
+            animation: backgroundMove 20s ease-in-out infinite;
+            z-index: -1;
+        }
+
+        @keyframes backgroundMove {
+
+            0%,
+            100% {
+                transform: translateY(0) rotate(0deg);
+            }
+
+            33% {
+                transform: translateY(-30px) rotate(1deg);
+            }
+
+            66% {
+                transform: translateY(30px) rotate(-1deg);
+            }
+        }
+
+        /* Geliştirici Badge */
+        .developer-badge {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            animation: slideInRight 0.8s ease-out;
+        }
+
+        .badge-content {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: var(--surface-glass);
+            border: 1px solid var(--border-primary);
+            border-radius: 50px;
+            padding: 8px 20px;
+            backdrop-filter: blur(20px);
+            box-shadow: var(--glow-primary);
+            transition: var(--transition-normal);
+            cursor: pointer;
+        }
+
+        .badge-content:hover {
+            transform: translateY(-2px);
+            border-color: var(--border-accent);
+            box-shadow: var(--glow-secondary);
+        }
+
+        .developer-avatar {
+            width: 36px;
+            height: 36px;
+            background: var(--accent-gradient);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: white;
+            box-shadow: var(--glow-primary);
+        }
+
+        .developer-info h3 {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            margin-bottom: 2px;
+        }
+
+        .developer-name {
+            font-size: 1rem;
+            font-weight: 600;
+            background: var(--neon-gradient);
+            background-size: 200% 200%;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: gradientMove 3s ease-in-out infinite;
+        }
+
+        @keyframes slideInRight {
+            from {
+                opacity: 0;
+                transform: translateX(50px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: var(--spacing-lg);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            position: relative;
+        }
+
+        .hero-section {
+            text-align: center;
+            margin-bottom: var(--spacing-2xl);
+            animation: fadeInUp 0.8s ease-out;
+        }
+
+        .hero-title {
+            font-size: clamp(2.5rem, 6vw, 4.5rem);
+            font-weight: 700;
+            background: var(--neon-gradient);
+            background-size: 300% 300%;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: var(--spacing-md);
+            animation: gradientMove 3s ease-in-out infinite;
+            line-height: 1.1;
+        }
+
+        @keyframes gradientMove {
+
+            0%,
+            100% {
+                background-position: 0% 50%;
+            }
+
+            50% {
+                background-position: 100% 50%;
+            }
+        }
+
+        .hero-subtitle {
+            font-size: 1.25rem;
+            color: var(--text-secondary);
+            font-weight: 400;
+            max-width: 600px;
+            margin: 0 auto var(--spacing-lg);
+            line-height: 1.6;
+        }
+
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+            background: var(--surface-glass);
+            border: 1px solid var(--border-primary);
+            border-radius: 50px;
+            padding: var(--spacing-sm) var(--spacing-lg);
+            backdrop-filter: blur(20px);
+            box-shadow: var(--glow-primary);
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                transform: scale(1);
+                box-shadow: var(--glow-primary);
+            }
+
+            50% {
+                transform: scale(1.02);
+                box-shadow: var(--glow-secondary);
+            }
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--neon-green);
+            border-radius: 50%;
+            box-shadow: 0 0 15px var(--neon-green);
+            animation: glow 1.5s ease-in-out infinite alternate;
+        }
+
+        @keyframes glow {
+            from {
+                box-shadow: 0 0 10px var(--neon-green);
+            }
+
+            to {
+                box-shadow: 0 0 25px var(--neon-green), 0 0 35px var(--neon-green);
+            }
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: var(--spacing-lg);
+            width: 100%;
+            margin: var(--spacing-2xl) 0;
+        }
+
+        .feature-card {
+            background: var(--surface-glass);
+            border: 1px solid var(--border-primary);
+            border-radius: var(--border-radius-large);
+            padding: var(--spacing-xl);
+            backdrop-filter: blur(20px);
+            transition: var(--transition-normal);
+            position: relative;
+            overflow: hidden;
+            cursor: pointer;
+        }
+
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: var(--primary-gradient);
+            transform: scaleX(0);
+            transition: var(--transition-normal);
+            transform-origin: left;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-8px);
+            border-color: var(--border-accent);
+            box-shadow: var(--glow-secondary);
+            background: var(--surface-elevated);
+        }
+
+        .feature-card:hover::before {
+            transform: scaleX(1);
+        }
+
+        .feature-icon {
+            width: 60px;
+            height: 60px;
+            background: var(--accent-gradient);
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: var(--spacing-lg);
+            font-size: 1.5rem;
+            color: white;
+            font-weight: 600;
+            box-shadow: var(--glow-primary);
+        }
+
+        .feature-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: var(--spacing-sm);
+            color: var(--text-primary);
+        }
+
+        .feature-description {
+            color: var(--text-secondary);
+            line-height: 1.6;
+            font-size: 0.95rem;
+        }
+
+        .cta-section {
+            margin-top: var(--spacing-2xl);
+            display: flex;
+            gap: var(--spacing-lg);
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .cta-button {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+            padding: var(--spacing-lg) var(--spacing-xl);
+            border-radius: var(--border-radius);
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 1rem;
+            transition: var(--transition-normal);
+            position: relative;
+            overflow: hidden;
+            border: none;
+            cursor: pointer;
+            min-width: 180px;
+            justify-content: center;
+        }
+
+        .cta-primary {
+            background: var(--primary-gradient);
+            color: white;
+            box-shadow: var(--glow-primary);
+        }
+
+        .cta-secondary {
+            background: var(--surface-glass);
+            color: var(--text-primary);
+            border: 1px solid var(--border-primary);
+            backdrop-filter: blur(20px);
+        }
+
+        .cta-button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: var(--transition-normal);
+        }
+
+        .cta-button:hover::before {
+            left: 100%;
+        }
+
+        .cta-button:hover {
+            transform: translateY(-2px);
+        }
+
+        .cta-primary:hover {
+            box-shadow: var(--glow-secondary);
+        }
+
+        .cta-secondary:hover {
+            background: var(--surface-elevated);
+            border-color: var(--border-accent);
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .feature-card {
+            animation: fadeInUp 0.6s ease-out;
+            animation-fill-mode: both;
+        }
+
+        .feature-card:nth-child(1) {
+            animation-delay: 0.1s;
+        }
+
+        .feature-card:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .feature-card:nth-child(3) {
+            animation-delay: 0.3s;
+        }
+
+        .feature-card:nth-child(4) {
+            animation-delay: 0.4s;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .container {
+                padding: var(--spacing-md);
+            }
+
+            .developer-badge {
+                position: relative;
+                top: 0;
+                right: 0;
+                margin-bottom: var(--spacing-lg);
+                justify-content: center;
+            }
+
+            .badge-content {
+                width: fit-content;
+                margin: 0 auto;
+            }
+
+            .cta-section {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .cta-button {
+                width: 100%;
+                max-width: 300px;
+            }
+        }
+
+        /* Scrollbar stil */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-secondary);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--surface-elevated);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--border-accent);
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Geliştirici Badge -->
+    <div class="developer-badge">
+        <div class="badge-content">
+            <div class="developer-avatar">ÜM</div>
+            <div class="developer-info">
+                <h3>Geliştirici</h3>
+                <div class="developer-name">ÜmitM0d</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="hero-section">
+            <h1 class="hero-title">HLS Proxy Sunucusu</h1>
+            <p class="hero-subtitle">HLS yayınları, IPTV ve çalma listesi yönetimi için gelişmiş proxy sunucusu, evrensel
+                destek ile</p>
+            <div class="status-indicator">
+                <div class="status-dot"></div>
+                <span>Sunucu Çalışıyor</span>
+            </div>
+        </div>
+
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">🔄</div>
+                <h3 class="feature-title">Evrensel Proxy</h3>
+                <p class="feature-description">HLS (.m3u8), M3U çalma listeleri, MPD (DASH) yayınları ve dinamik DLHD
+                    akışları için tam destek, otomatik optimizasyon ile</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">🎬</div>
+                <h3 class="feature-title">Gelişmiş Çözümleme</h3>
+                <p class="feature-description">Vavoo ve DaddyLive HD bağlantılarının otomatik çözümlenmesi, kısıtlamaları
+                    aşma ve entegre API kimlik doğrulaması</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">📡</div>
+                <h3 class="feature-title">Çalma Listesi Oluşturucu</h3>
+                <p class="feature-description">Birden fazla çalma listesini tek bir M3U8 kaynağında birleştirin, entegre
+                    proxy ve tüm IPTV oynatıcılar için evrensel uyumluluk</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">📹</div>
+                <h3 class="feature-title">DVR Kayıt</h3>
+                <p class="feature-description">Canlı yayınları yerel depolamaya TiVo benzeri işlevsellik ile kaydedin.
+                    Kayıtları başlatın, durdurun ve yönetin</p>
+            </div>
+        </div>
+
+        <div class="cta-section">
+            <a href="builder" class="cta-button cta-primary">
+                <span>🏗️</span>
+                <span>Çalma Listesi Oluşturucu</span>
+            </a>
+            <a href="recordings" class="cta-button cta-primary">
+                <span>📹</span>
+                <span>DVR Kayıtları</span>
+            </a>
+            <a href="info" class="cta-button cta-secondary">
+                <span>📋</span>
+                <span>Dokümantasyon</span>
+            </a>
+        </div>
+    </div>
+
+    <script>
+        // İnteraktif efektler
+        document.addEventListener('DOMContentLoaded', function () {
+            // Kartlar için hafif paralaks efekti
+            const cards = document.querySelectorAll('.feature-card');
+
+            document.addEventListener('mousemove', (e) => {
+                const mouseX = e.clientX / window.innerWidth;
+                const mouseY = e.clientY / window.innerHeight;
+
+                cards.forEach((card, index) => {
+                    const xOffset = (mouseX - 0.5) * 10;
+                    const yOffset = (mouseY - 0.5) * 10;
+
+                    card.style.transform = `translate(${xOffset}px, ${yOffset}px) translateY(-8px)`;
+                });
+            });
+
+            // Fare ayrıldığında transformu sıfırla
+            document.addEventListener('mouseleave', () => {
+                cards.forEach(card => {
+                    card.style.transform = '';
+                });
+            });
+
+            // Kartlarda tıklama efekti
+            cards.forEach(card => {
+                card.addEventListener('click', function () {
+                    this.style.transform = 'scale(0.95)';
+                    setTimeout(() => {
+                        this.style.transform = '';
+                    }, 150);
+                });
+            });
+
+            // Başlıkta tıklama ile gradient animasyonu
+            const title = document.querySelector('.hero-title');
+            title.addEventListener('click', () => {
+                title.style.animationDuration = '0.5s';
+                setTimeout(() => {
+                    title.style.animationDuration = '3s';
+                }, 1000);
+            });
+
+            // Geliştirici badge tıklama efekti
+            const badge = document.querySelector('.badge-content');
+            badge.addEventListener('click', function () {
+                this.style.transform = 'scale(0.95)';
+                setTimeout(() => {
+                    this.style.transform = 'translateY(-2px)';
+                }, 150);
+                
+                // Badge tıklanınca geliştirici bilgisi göster
+                const devName = document.querySelector('.developer-name');
+                const originalText = devName.textContent;
+                devName.textContent = '🚀 ÜmitM0d';
+                setTimeout(() => {
+                    devName.textContent = originalText;
+                }, 1000);
+            });
+        });
+    </script>
+</body>
+
+</html>
