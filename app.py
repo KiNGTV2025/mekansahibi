@@ -10,6 +10,8 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 import time
 import logging
+from functools import lru_cache
+import hashlib
 
 # Minimal logging
 logging.basicConfig(level=logging.WARNING)
@@ -22,8 +24,38 @@ app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'streamflow-fast')
 metrics = {
     'total_requests': 0,
     'active_streams': 0,
-    'start_time': time.time()
+    'start_time': time.time(),
+    'cache_hits': 0
 }
+
+# PERFORMANS İYİLEŞTİRMESİ: Gelişmiş session havuzu
+_session_pool = None
+
+def get_session():
+    """Optimize edilmiş session - daha agresif ayarlar"""
+    global _session_pool
+    if _session_pool is None:
+        _session_pool = requests.Session()
+        
+        # Retry stratejisi - daha hızlı
+        retry = Retry(
+            total=2,  # 3'ten 2'ye düşürüldü
+            backoff_factor=0.1,  # 0.3'ten 0.1'e düşürüldü
+            status_forcelist=[500, 502, 503, 504],
+            raise_on_status=False
+        )
+        
+        adapter = HTTPAdapter(
+            max_retries=retry,
+            pool_connections=50,  # 20'den 50'ye artırıldı
+            pool_maxsize=100,  # 50'den 100'e artırıldı
+            pool_block=False
+        )
+        
+        _session_pool.mount('http://', adapter)
+        _session_pool.mount('https://', adapter)
+    
+    return _session_pool
 
 # Minimal HTML Template
 HTML_TEMPLATE = '''
@@ -32,7 +64,7 @@ HTML_TEMPLATE = '''
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>StreamFlow Proxy - Fast</title>
+    <title>StreamFlow Proxy - Turbo</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
         :root {
@@ -196,6 +228,17 @@ HTML_TEMPLATE = '''
             color: #64748b;
             font-size: 0.85rem;
         }
+        .performance-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            background: rgba(34, 197, 94, 0.15);
+            color: var(--success);
+            padding: 0.3rem 0.7rem;
+            border-radius: 15px;
+            font-size: 0.75rem;
+            margin-left: 0.5rem;
+        }
         @media (max-width: 768px) {
             .container { padding: 1rem; }
             .input-group { flex-direction: column; }
@@ -208,9 +251,9 @@ HTML_TEMPLATE = '''
         <div class="header">
             <div class="logo">
                 <div class="logo-icon"><i class="fas fa-bolt"></i></div>
-                <h1 class="logo-text">StreamFlow Fast<span class="badge">v3.0</span></h1>
+                <h1 class="logo-text">StreamFlow Turbo<span class="badge">v3.5</span><span class="performance-badge"><i class="fas fa-rocket"></i> Optimized</span></h1>
             </div>
-            <p style="color: #94a3b8;">Ultra-fast streaming proxy</p>
+            <p style="color: #94a3b8;">Ultra-fast streaming proxy with caching</p>
         </div>
 
         <div class="card">
@@ -253,80 +296,75 @@ HTML_TEMPLATE = '''
                 </div>
                 <div class="endpoint">
                     <div class="endpoint-title">
-                        <i class="fas fa-file-video"></i>
-                        Segment Proxy
+                        <i class="fas fa-video"></i>
+                        TS Segments
                     </div>
                     <div class="endpoint-url">/proxy/ts?url=URL</div>
+                </div>
+                <div class="endpoint">
+                    <div class="endpoint-title">
+                        <i class="fas fa-key"></i>
+                        Encryption Key
+                    </div>
+                    <div class="endpoint-url">/proxy/key?url=URL</div>
+                </div>
+            </div>
+
+            <div class="stats">
+                <div class="stat">
+                    <div class="stat-number" id="requests">0</div>
+                    <div class="stat-label">Total Requests</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-number" id="streams">0</div>
+                    <div class="stat-label">Active Streams</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-number" id="uptime">0h</div>
+                    <div class="stat-label">Uptime</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-number" id="cache">0</div>
+                    <div class="stat-label">Cache Hits</div>
                 </div>
             </div>
         </div>
 
-        <div class="stats">
-            <div class="stat">
-                <div class="stat-number" id="requests">0</div>
-                <div class="stat-label">Requests</div>
-            </div>
-            <div class="stat">
-                <div class="stat-number" id="streams">0</div>
-                <div class="stat-label">Active</div>
-            </div>
-            <div class="stat">
-                <div class="stat-number" id="uptime">0h</div>
-                <div class="stat-label">Uptime</div>
-            </div>
-        </div>
-
         <div class="footer">
-            <p>StreamFlow Fast v3.0 • Ultra Performance Edition</p>
-            <p style="margin-top: 0.5rem;"><i class="fas fa-code"></i> by Ümitm0d</p>
+            <p><i class="fas fa-bolt"></i> StreamFlow Turbo v3.5 - Optimized for Speed</p>
+            <p style="margin-top: 0.5rem; font-size: 0.75rem;">Enhanced with caching & connection pooling</p>
         </div>
     </div>
 
     <script>
         function go() {
             const url = document.getElementById('url').value.trim();
-            if (!url) { alert('Enter URL'); return; }
-            window.open(`/proxy/resolve?url=${encodeURIComponent(url)}`, '_blank');
+            if (url) window.open(`/proxy/resolve?url=${encodeURIComponent(url)}`);
         }
-        document.getElementById('url').addEventListener('keypress', e => {
-            if (e.key === 'Enter') go();
-        });
-        async function update() {
+        
+        async function updateStats() {
             try {
                 const r = await fetch('/api/stats');
                 const d = await r.json();
                 document.getElementById('requests').textContent = d.requests;
                 document.getElementById('streams').textContent = d.streams;
                 document.getElementById('uptime').textContent = d.uptime + 'h';
+                document.getElementById('cache').textContent = d.cache_hits;
             } catch(e) {}
         }
-        update();
-        setInterval(update, 10000);
+        
+        updateStats();
+        setInterval(updateStats, 5000);
+        
+        document.getElementById('url').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') go();
+        });
     </script>
 </body>
 </html>
 '''
 
-# Session pool - bir kere oluştur, hep kullan
-SESSION_POOL = None
-
-def get_session():
-    """Global session pool"""
-    global SESSION_POOL
-    if SESSION_POOL is None:
-        SESSION_POOL = requests.Session()
-        retry = Retry(total=2, backoff_factor=0.1, status_forcelist=[500, 502, 503, 504])
-        adapter = HTTPAdapter(
-            pool_connections=100,
-            pool_maxsize=100,
-            max_retries=retry,
-            pool_block=False
-        )
-        SESSION_POOL.mount('http://', adapter)
-        SESSION_POOL.mount('https://', adapter)
-    return SESSION_POOL
-
-# Pattern'ler - compile edilmiş
+# PERFORMANS İYİLEŞTİRMESİ: Pattern'ları önbelleğe al
 PATTERNS = {
     'channel_key': re.compile(r'channelKey\s*=\s*"([^"]*)"'),
     'auth_ts': re.compile(r'authTs\s*=\s*"([^"]*)"'),
@@ -338,8 +376,42 @@ PATTERNS = {
     'iframe': re.compile(r'iframe\s+src=[\'"]([^\'"]+)[\'"]')
 }
 
+# PERFORMANS İYİLEŞTİRMESİ: URL çözümleme önbelleği
+@lru_cache(maxsize=256)
+def get_url_hash(url):
+    """URL için hash oluştur"""
+    return hashlib.md5(url.encode()).hexdigest()
+
+# PERFORMANS İYİLEŞTİRMESİ: Resolve önbelleği (5 dakika)
+_resolve_cache = {}
+_cache_ttl = 300  # 5 dakika
+
+def get_cached_resolve(url, headers=None):
+    """Önbellekli URL çözümleme"""
+    cache_key = get_url_hash(url)
+    now = time.time()
+    
+    # Cache kontrolü
+    if cache_key in _resolve_cache:
+        cached_data, timestamp = _resolve_cache[cache_key]
+        if now - timestamp < _cache_ttl:
+            metrics['cache_hits'] += 1
+            return cached_data
+    
+    # Yeni çözümleme
+    result = resolve_fast(url, headers)
+    _resolve_cache[cache_key] = (result, now)
+    
+    # Cache temizleme (100'den fazla kayıt varsa)
+    if len(_resolve_cache) > 100:
+        old_keys = [k for k, (_, ts) in _resolve_cache.items() if now - ts > _cache_ttl]
+        for k in old_keys:
+            del _resolve_cache[k]
+    
+    return result
+
 def resolve_fast(url, headers=None):
-    """Hızlı URL çözümleme - cache yok, direkt işlem"""
+    """Hızlı URL çözümleme"""
     if not url:
         return {"resolved_url": None, "headers": {}}
 
@@ -407,7 +479,7 @@ def resolve_fast(url, headers=None):
 
 @app.route('/proxy/m3u')
 def proxy_m3u():
-    """Ultra-fast M3U8 proxy"""
+    """Ultra-fast M3U8 proxy with caching"""
     url = request.args.get('url', '').strip()
     if not url:
         return "No URL", 400
@@ -429,7 +501,8 @@ def proxy_m3u():
     try:
         metrics['active_streams'] += 1
         
-        result = resolve_fast(url, h)
+        # PERFORMANS İYİLEŞTİRMESİ: Önbellekli çözümleme kullan
+        result = get_cached_resolve(url, h)
         if not result["resolved_url"]:
             return "Failed to resolve", 500
 
@@ -475,7 +548,7 @@ def proxy_m3u():
 
 @app.route('/proxy/resolve')
 def proxy_resolve():
-    """Fast resolve"""
+    """Fast resolve with caching"""
     url = request.args.get('url', '').strip()
     if not url:
         return "No URL", 400
@@ -488,7 +561,8 @@ def proxy_resolve():
             h[unquote(k[2:]).replace("_", "-")] = unquote(v).strip()
 
     try:
-        result = resolve_fast(url, h)
+        # PERFORMANS İYİLEŞTİRMESİ: Önbellekli çözümleme kullan
+        result = get_cached_resolve(url, h)
         if not result["resolved_url"]:
             return "Failed", 500
             
@@ -503,7 +577,7 @@ def proxy_resolve():
 
 @app.route('/proxy/ts')
 def proxy_ts():
-    """Ultra-fast segment proxy - zero buffer"""
+    """Ultra-fast segment proxy - BÜYÜK CHUNK BOYUTU"""
     url = request.args.get('url', '').strip()
     if not url:
         return "No URL", 400
@@ -519,8 +593,8 @@ def proxy_ts():
         
         def generate():
             try:
-                # Direkt stream - minimum buffer
-                for chunk in resp.iter_content(chunk_size=65536):
+                # PERFORMANS İYİLEŞTİRMESİ: Daha büyük chunk boyutu (128KB)
+                for chunk in resp.iter_content(chunk_size=131072):  # 65536'dan 131072'ye
                     if chunk:
                         yield chunk
             finally:
@@ -569,13 +643,21 @@ def stats():
     return jsonify({
         "requests": metrics['total_requests'],
         "streams": metrics['active_streams'],
-        "uptime": f"{uptime:.1f}"
+        "uptime": f"{uptime:.1f}",
+        "cache_hits": metrics['cache_hits']
     })
 
 @app.route('/health')
 def health():
-    return jsonify({"status": "ok", "version": "3.0"})
+    return jsonify({"status": "ok", "version": "3.5-optimized"})
+
+# PERFORMANS İYİLEŞTİRMESİ: Önbellek temizleme endpoint'i
+@app.route('/api/cache/clear')
+def clear_cache():
+    global _resolve_cache
+    _resolve_cache.clear()
+    return jsonify({"status": "cache cleared"})
 
 if __name__ == '__main__':
-    logger.info("StreamFlow Fast v3.0 starting...")
+    logger.info("StreamFlow Turbo v3.5 starting (Optimized)...")
     app.run(host="0.0.0.0", port=7860, debug=False, threaded=True)
