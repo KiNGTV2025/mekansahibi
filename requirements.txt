@@ -1,17 +1,4 @@
-# Core
-aiohttp==3.9.1
-aiohttp-socks==0.8.3
-gunicorn==21.2.0
-
-# Utilities
-python-dotenv==1.0.0
-zstandard==0.22.0
-beautifulsoup4==4.12.2
-lxml==4.9.3
-python-socks==2.4.4
-
-# Crypto
-pycryptodome==3.20.0
-
-# Optional (kaldırabilirsiniz)
-# pydash2hls==0.1.0  # BU SATIRI SİLİN VEYA YORUM SATIRI YAPIN
+flask==3.0.0
+gevent==23.9.1
+requests==2.31.0
+urllib3==2.1.0
